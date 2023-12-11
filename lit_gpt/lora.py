@@ -233,28 +233,29 @@ class LoRAQKVLinear(LoRALinear):
             # https://github.com/cloneofsimo/lora
             self.scaling = self.lora_alpha / self.r
 
-            # Compute the indices
-            # Indices are needed to properly pad weight updates with zeros. If we want to fine-tune queries and values,
-            # but not keys, then the weights update should be:
-            #
-            # [[ΔW,ΔW,ΔW, ..., 0,0,0, ..., ΔW,ΔW,ΔW,],
-            #  [....................................],
-            #  [ΔW,ΔW,ΔW, ..., 0,0,0, ..., ΔW,ΔW,ΔW,]]
-            #      ↑              ↑            ↑
-            # ________________________________________
-            # | query         | key       | value    |
-            # ----------------------------------------
-            self.lora_ind = []
-            if enable_q:
-                self.lora_ind.extend(range(0, self.linear.in_features))
-            if enable_k:
-                self.lora_ind.extend(range(self.linear.in_features, self.linear.in_features + self.kv_embd_size))
-            if enable_v:
-                self.lora_ind.extend(range(self.linear.in_features + self.kv_embd_size, self.linear.out_features))
             self.reset_parameters()
 
+    @property
+    def lora_ind(self) -> torch.Tensor:
+        """Lazy creation of a buffer with LoRA indices to overcome the limitation when FSDP with meta device is used."""
+        # Indices are needed to properly pad weight updates with zeros.
+        if not hasattr(self, "_lora_ind"):
+            indices = []
+            enable_q, enable_k, enable_v = self.enable_lora
+            in_features, out_features = self.linear.in_features, self.linear.out_features
+            device = self.linear.weight.device
+            if enable_q:
+                indices.append(torch.arange(0, in_features, device=device))
+            if enable_k:
+                indices.append(torch.arange(in_features, in_features + self.kv_embd_size, device=device))
+            if enable_v:
+                indices.append(torch.arange(in_features + self.kv_embd_size, out_features, device=device))
+            self.register_buffer("_lora_ind", torch.cat(indices), persistent=False)
+
+        return self._lora_ind
+
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
-        """Properly pad weight updates with zeros.
+        """Properly pad the last dimension of weight updates with zeros.
 
         If, based on `self.enable_lora`, we want to fine-tune queries and values, but not keys,
         then the weights update should be:
@@ -285,15 +286,8 @@ class LoRAQKVLinear(LoRALinear):
         # Then x has embeddings_size of 256 (2 * 128 as enable_lora only for query and value, not keys) and expected
         # embeddings_size is 384 (self.linear.out_features), so that means that we need to pad from 256 to 384 with zeros, but
         # only for key updates (this is where self.lora_ind comes in handy)
-        # Note: double transpose (in the beginning and in the end) is basically a guard for two-dimensional tensors
-        # for example when we want to merge/unmerge LoRA weights and pretrained weights
-        x = x.transpose(0, 1)
-        result = x.new_zeros((*x.shape[:-1], self.linear.out_features))  # (64, 64, 384)
-        result = result.view(-1, self.linear.out_features)  # (4096, 384)
-        result = result.index_copy(
-            1, torch.tensor(self.lora_ind, device=result.device), x.reshape(-1, sum(self.qkv_shapes))
-        )  # (4096, 256)
-        return result.view((*x.shape[:-1], self.linear.out_features)).transpose(0, 1)  # (64, 64, 384)
+        result = x.new_zeros(*x.shape[:-1], self.linear.out_features)  # (64, 64, 384)
+        return result.index_copy_(dim=-1, index=self.lora_ind, source=x)  # (64, 64, 384)
 
     def conv1d(self, input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
         """An extension of the `torch.nn.functional.conv1d` function with a logic specific to grouped queries.
@@ -345,7 +339,7 @@ class LoRAQKVLinear(LoRALinear):
                 0
             )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
             # W = W + delta_W (merge)
-            self.linear.weight.data += self.zero_pad(delta_w * self.scaling)  # (256, 128) after zero_pad (384, 128)
+            self.linear.weight.data += self.zero_pad(delta_w.T * self.scaling).T  # (256, 128) after zero_pad (384, 128)
             self.merged = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
