@@ -1,3 +1,14 @@
+from scripts.prepare_alpaca import generate_prompt
+from lit_gpt.utils import (
+    check_valid_checkpoint_dir,
+    chunked_cross_entropy,
+    get_default_supported_precision,
+    load_checkpoint,
+    num_parameters,
+)
+from lit_gpt.tokenizer import Tokenizer
+from lit_gpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
+from generate.base import generate
 import os
 import sys
 import time
@@ -15,17 +26,6 @@ from lightning.fabric.utilities import ThroughputMonitor
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from generate.base import generate
-from lit_gpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
-from lit_gpt.tokenizer import Tokenizer
-from lit_gpt.utils import (
-    check_valid_checkpoint_dir,
-    chunked_cross_entropy,
-    get_default_supported_precision,
-    load_checkpoint,
-    num_parameters,
-)
-from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 100
 save_interval = 100
@@ -53,24 +53,30 @@ lora_projection = False
 lora_mlp = False
 lora_head = False
 warmup_steps = 100
+neftune_alpha = None  # default is None, paper default is 5
 
-hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
+hparams = {k: v for k, v in locals().items() if isinstance(
+    v, (int, float, str)) and not k.startswith("_")}
 
 
 def setup(
     data_dir: Path = Path("data/alpaca"),
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    checkpoint_dir: Path = Path(
+        "checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/lora/alpaca"),
     precision: Optional[str] = None,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq",
+                               "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
 ) -> None:
     precision = precision or get_default_supported_precision(training=True)
 
     plugins = None
     if quantize is not None and quantize.startswith("bnb."):
         if "mixed" in precision:
-            raise ValueError("Quantization and mixed precision is not supported.")
-        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+            raise ValueError(
+                "Quantization and mixed precision is not supported.")
+        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16,
+                 "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
@@ -90,8 +96,10 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
+    logger = CSVLogger(out_dir.parent, out_dir.name,
+                       flush_logs_every_n_steps=log_interval)
+    fabric = L.Fabric(devices=devices, strategy=strategy,
+                      precision=precision, loggers=logger, plugins=plugins)
     fabric.print(hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
@@ -99,7 +107,8 @@ def setup(
 def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) -> None:
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
+    # same seed for every process to init model (FSDP)
+    fabric.seed_everything(1337)
 
     if fabric.global_rank == 0:
         os.makedirs(out_dir, exist_ok=True)
@@ -120,15 +129,19 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) 
         to_projection=lora_projection,
         to_mlp=lora_mlp,
         to_head=lora_head,
+        neftune_alpha=neftune_alpha,
     )
     checkpoint_path = checkpoint_dir / "lit_model.pth"
-    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
+    fabric.print(
+        f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
     mark_only_lora_as_trainable(model)
 
-    fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
-    fabric.print(f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
+    fabric.print(
+        f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
+    fabric.print(
+        f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
 
     model = fabric.setup_module(model)
 
@@ -136,11 +149,14 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) 
     if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
         import bitsandbytes as bnb
 
-        optimizer = bnb.optim.PagedAdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
+        optimizer = bnb.optim.PagedAdamW(
+            trainable_params, lr=learning_rate, weight_decay=weight_decay)
     else:
-        optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
+        optimizer = torch.optim.AdamW(
+            trainable_params, lr=learning_rate, weight_decay=weight_decay)
     optimizer = fabric.setup_optimizers(optimizer)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_iters // batch_size)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=max_iters // batch_size)
 
     # strict=False because missing keys due to LoRA weights not contained in state dict
     load_checkpoint(fabric, model, checkpoint_path, strict=False)
@@ -148,10 +164,12 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) 
     fabric.seed_everything(1337 + fabric.global_rank)
 
     train_time = time.perf_counter()
-    train(fabric, model, optimizer, scheduler, train_data, val_data, checkpoint_dir, out_dir)
+    train(fabric, model, optimizer, scheduler,
+          train_data, val_data, checkpoint_dir, out_dir)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
-        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
+        fabric.print(
+            f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final LoRA checkpoint at the end of training
     save_path = out_dir / "lit_model_lora_finetuned.pth"
@@ -192,7 +210,8 @@ def train(
 
         iter_t0 = time.perf_counter()
 
-        input_ids, targets = get_batch(fabric, train_data, longest_seq_ix if iter_num == 1 else None)
+        input_ids, targets = get_batch(
+            fabric, train_data, longest_seq_ix if iter_num == 1 else None)
 
         is_accumulating = iter_num % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
@@ -224,9 +243,11 @@ def train(
 
         if not is_accumulating and step_count % eval_interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_data, tokenizer, max_iters=eval_iters)
+            val_loss = validate(fabric, model, val_data,
+                                tokenizer, max_iters=eval_iters)
             t1 = time.perf_counter() - t0
-            fabric.print(f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
+            fabric.print(
+                f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
@@ -242,7 +263,8 @@ def validate(fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Toke
     for k in range(max_iters):
         input_ids, targets = get_batch(fabric, val_data)
         logits = model(input_ids)
-        losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
+        losses[k] = chunked_cross_entropy(
+            logits[..., :-1, :], targets[..., 1:], chunk_size=0)
     val_loss = losses.mean()
 
     # produce an example:
@@ -254,7 +276,8 @@ def validate(fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Toke
     with fabric.init_tensor():
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here
         model.set_kv_cache(batch_size=1)
-    output = generate(model, encoded, max_returned_tokens=len(encoded) + eval_max_new_tokens, temperature=0.8)
+    output = generate(model, encoded, max_returned_tokens=len(
+        encoded) + eval_max_new_tokens, temperature=0.8)
     model.clear_kv_cache()
     output = tokenizer.decode(output)
     fabric.print(output)
