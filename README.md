@@ -22,6 +22,8 @@
 
 # ⚡ Lit-GPT
 
+Adding a new feature
+
 Hackable [implementation](lit_gpt/model.py) of state-of-the-art open-source large language models released under the **Apache 2.0 license**.
 
 Supports the following popular model checkpoints:
