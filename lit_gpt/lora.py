@@ -735,3 +735,20 @@ def merge_lora_weights(model: GPT) -> None:
     for module in model.modules():
         if isinstance(module, LoRALinear):
             module.merge()
+
+
+def dequantize_model(model: GPT) -> None:
+    """Dequantizes pretrained weights of the model.
+
+    For now supports weights that were quantization into either nf4 or fp4 dtype.
+    """
+    import bitsandbytes as bnb
+
+    for module in model.modules():
+        if isinstance(module, LoRALinear):
+            weight = module.linear.weight
+            if weight.dtype == torch.uint8:
+                dequantized_weight = bnb.functional.dequantize_4bit(weight.data, weight.quant_state).to(
+                    module.linear.compute_dtype
+                )
+                module.linear.weight = bnb.nn.Params4bit(dequantized_weight, requires_grad=False, **weight.__dict__)

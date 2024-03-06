@@ -80,6 +80,54 @@ def test_lora_merge():
     torch.testing.assert_close(weight_after, initial_weight + delta_w)
 
 
+@RunIf(min_cuda_gpus=1)
+@pytest.mark.parametrize("quant_type", ["nf4", "fp4"])
+@pytest.mark.parametrize(
+    "compute_dtype",
+    (
+        [torch.float16, torch.bfloat16]
+        if (torch.cuda.is_available() and torch.cuda.is_bf16_supported())
+        else [torch.float16]
+    ),
+)
+def test_dequantize_model(quant_type, compute_dtype):
+    from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
+
+    if not _BITSANDBYTES_AVAILABLE:
+        pytest.skip("BNB not available")
+
+    from lit_gpt.lora import GPT, Config, LoRALinear, dequantize_model
+
+    config = Config(
+        n_layer=1,
+        n_head=2,
+        n_embd=8,
+        block_size=8,
+        vocab_size=8,
+        r=8,
+        alpha=8,
+        dropout=0.1,
+        to_query=True,
+        to_value=True,
+        to_projection=True,
+    )
+    fabric = Fabric(devices=1, plugins=BitsandbytesPrecision(mode=quant_type, dtype=compute_dtype))
+    model = GPT(config)
+    model = fabric.setup(model)
+
+    # make sure that all pretrained weight are quantized
+    for module in model.modules():
+        if isinstance(module, LoRALinear):
+            assert module.linear.weight.dtype == torch.uint8
+
+    dequantize_model(model)
+
+    # make sure that all pretrained weight are dequantized
+    for module in model.modules():
+        if isinstance(module, LoRALinear):
+            assert module.linear.weight.dtype == compute_dtype
+
+
 def test_lora_mqa_gqa():
     from lit_gpt.lora import GPT, Config
 
