@@ -10,9 +10,13 @@ import pytest
 import torch
 import torch.nn.functional as F
 import yaml
+from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
+from lightning.pytorch.loggers import WandbLogger
 
 from conftest import RunIf
 from lightning import Fabric
+
+from lightning_utilities.core.imports import RequirementCache
 
 
 def test_find_multiple():
@@ -39,11 +43,11 @@ def test_check_valid_checkpoint_dir(tmp_path):
         check_valid_checkpoint_dir(tmp_path)
     out = out.getvalue().strip()
     expected = f"""
---checkpoint_dir '{str(tmp_path.absolute())}' is missing the files: ['lit_model.pth', 'lit_config.json', 'tokenizer.json OR tokenizer.model', 'tokenizer_config.json'].
+--checkpoint_dir '{str(tmp_path.absolute())}' is missing the files: ['lit_model.pth', 'model_config.yaml', 'tokenizer.json OR tokenizer.model', 'tokenizer_config.json'].
 Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 See all download options by running:
- python litgpt/scripts/download.py
+ litgpt download
     """.strip()
     assert out == expected
 
@@ -57,7 +61,7 @@ See all download options by running:
 Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 See all download options by running:
- python litgpt/scripts/download.py
+ litgpt download
     """.strip()
     assert out == expected
 
@@ -75,7 +79,7 @@ You have downloaded locally:
  --checkpoint_dir '{str(checkpoint_dir.absolute())}'
 
 See all download options by running:
- python litgpt/scripts/download.py
+ litgpt download
     """.strip()
     assert out == expected
 
@@ -118,7 +122,7 @@ def test_chunked_cross_entropy(ignore_index, B):
         ignore_index=(ignore_index if ignore_index is not None else -100),
     )
 
-    ignore_index = ignore_index if ignore_index is not None else -1
+    ignore_index = ignore_index if ignore_index is not None else -100
     regular_loss = chunked_cross_entropy(regular_logits, targets, chunk_size=0, ignore_index=ignore_index)
     assert torch.equal(baseline_loss, regular_loss)
     assert regular_loss.numel() == 1
@@ -219,7 +223,7 @@ def test_copy_config_files(fake_checkpoint_dir, tmp_path):
 
     copy_config_files(fake_checkpoint_dir, tmp_path)
     expected = {
-        "lit_config.json",
+        "model_config.yaml",
         "tokenizer_config.json",
         "tokenizer.json",
     }
@@ -245,3 +249,16 @@ def test_save_hyperparameters(tmp_path):
     assert hparams["out_dir"] == str(tmp_path)
     assert hparams["foo"] is True
     assert hparams["bar"] == 1
+
+
+def test_choose_logger(tmp_path):
+    from litgpt.utils import choose_logger
+
+    assert isinstance(choose_logger("csv", out_dir=tmp_path, name="csv"), CSVLogger)
+    if RequirementCache("tensorboard"):
+        assert isinstance(choose_logger("tensorboard", out_dir=tmp_path, name="tb"), TensorBoardLogger)
+    if RequirementCache("wandb"):
+        assert isinstance(choose_logger("wandb", out_dir=tmp_path, name="wandb"), WandbLogger)
+
+    with pytest.raises(ValueError, match="`--logger_name=foo` is not a valid option."):
+        choose_logger("foo", out_dir=tmp_path, name="foo")

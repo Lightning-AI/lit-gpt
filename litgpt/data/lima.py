@@ -19,11 +19,11 @@ class LIMA(LitDataModule):
 
     mask_prompt: bool = False
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
-    test_split_fraction: float = 0.1
-    """The fraction of the dataset to use for the test/validation dataset. The rest is used for training."""
+    val_split_fraction: float = 0.1
+    """The fraction of the dataset to use for the validation dataset. The rest is used for training."""
     prompt_style: Union[str, PromptStyle] = "alpaca"
     """The style to apply to instruction prompts. See `litgpt.prompts` for a list of available styles."""
-    ignore_index: int = -1
+    ignore_index: int = -100
     """The index to use for elements to be ignored in the label."""
     seed: int = 42
     """The random seed for creating the train/val splits and shuffling the dataset."""
@@ -77,7 +77,7 @@ class LIMA(LitDataModule):
         # Partition the dataset into train and test
         train_data, test_data = random_split(
             data,
-            [1.0 - self.test_split_fraction, self.test_split_fraction],
+            [1.0 - self.val_split_fraction, self.val_split_fraction],
             generator=torch.Generator().manual_seed(self.seed)
         )
         train_data, test_data = list(train_data), list(test_data)

@@ -3,7 +3,7 @@
 By default, the `litgpt/scripts/download.py` script converts the downloaded HF checkpoint files into a LitGPT compatible format after downloading. For example,
 
 ```bash
-python litgpt/scripts/download.py --repo_id EleutherAI/pythia-14m
+litgpt download --repo_id EleutherAI/pythia-14m
 ```
 
 creates the following files:
@@ -14,7 +14,7 @@ checkpoints/
     └── pythia-14m/
         ├── config.json
         ├── generation_config.json
-        ├── lit_config.json        # LitGPT specific file
+        ├── model_config.yaml      # LitGPT specific file
         ├── lit_model.pth          # LitGPT specific file
         ├── pytorch_model.bin
         ├── tokenizer.json
@@ -28,7 +28,7 @@ To disable the automatic conversion, which is useful for development and debuggi
 ```bash
 rm -rf checkpoints/EleutherAI/pythia-14m 
 
-python litgpt/scripts/download.py \
+litgpt download \
   --repo_id EleutherAI/pythia-14m \
   --convert_checkpoint false
   
@@ -46,10 +46,10 @@ ls checkpoints/EleutherAI/pythia-14m
         └── tokenizer_config.json
 ```
 
-The required files `lit_config.json` and `lit_model.pth` files can then be manually generated via the `litgpt/scripts/convert_hf_checkpoint.py` script:
+The required files `model_config.yaml` and `lit_model.pth` files can then be manually generated via the `litgpt/scripts/convert_hf_checkpoint.py` script:
 
 ```bash
-python litgpt/scripts/convert_hf_checkpoint.py \
+litgpt convert to_litgpt \
   --checkpoint_dir checkpoints/EleutherAI/pythia-14m
 ```
 

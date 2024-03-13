@@ -2,7 +2,6 @@
 import dataclasses
 import math
 import os
-import sys
 import time
 from pathlib import Path
 from pprint import pprint
@@ -10,7 +9,6 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import lightning as L
 import torch
-from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
@@ -19,6 +17,7 @@ from torchmetrics import RunningMean
 
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import LitDataModule, Alpaca
+from litgpt.generate.base import generate
 from litgpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
@@ -33,20 +32,16 @@ from litgpt.utils import (
     parse_devices,
     copy_config_files,
     save_hyperparameters,
+    choose_logger,
 )
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-from generate.base import generate
 
 
 def setup(
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    out_dir: Path = Path("out/lora"),
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
     devices: Union[int, str] = 1,
-    seed: int = 1337,
     lora_r: int = 8,
     lora_alpha: int = 16,
     lora_dropout: float = 0.05,
@@ -57,8 +52,6 @@ def setup(
     lora_mlp: bool = False,
     lora_head: bool = False,
     data: Optional[LitDataModule] = None,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/lora"),
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -70,13 +63,51 @@ def setup(
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
+    logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
+    seed: int = 1337,
 ) -> None:
+    """Finetune a model using the LoRA method.
+
+    Arguments:
+        checkpoint_dir: The path to the base model's checkpoint directory to load for finetuning.
+        out_dir: Directory in which to save checkpoints and logs.
+        precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
+        quantize: If set, quantize the model with this algorithm. See ``tutorials/quantize.md`` for more information.
+        devices: How many devices/GPUs to use.
+        lora_r: The LoRA rank.
+        lora_alpha: The LoRA alpha.
+        lora_dropout: The LoRA dropout value.
+        lora_query: Whether to apply LoRA to the query weights in attention.
+        lora_key: Whether to apply LoRA to the key weights in attention.
+        lora_value: Whether to apply LoRA to the value weights in attention.
+        lora_projection: Whether to apply LoRA to the output projection in the attention block.
+        lora_mlp: Whether to apply LoRA to the weights of the MLP in the attention block.
+        lora_head: Whether to apply LoRA to output head in GPT.
+        data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
+        train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
+        eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        logger_name: The name of the logger to send metrics to.
+        seed: The random seed to use for reproducibility.
+    """
 
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
+    config = Config.from_name(
+        name=checkpoint_dir.name,
+        lora_r=lora_r,
+        lora_alpha=lora_alpha,
+        lora_dropout=lora_dropout,
+        lora_query=lora_query,
+        lora_key=lora_key,
+        lora_value=lora_value,
+        lora_projection=lora_projection,
+        lora_mlp=lora_mlp,
+        lora_head=lora_head,
+    )
 
     precision = precision or get_default_supported_precision(training=True)
+    logger = choose_logger(logger_name, out_dir, name=f"finetune-{config.name}", log_interval=train.log_interval)
 
     plugins = None
     if quantize is not None and quantize.startswith("bnb."):
@@ -102,31 +133,8 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
-
-    fabric.launch(
-        main,
-        devices,
-        seed,
-        Config.from_name(
-            name=checkpoint_dir.name,
-            lora_r=lora_r,
-            lora_alpha=lora_alpha,
-            lora_dropout=lora_dropout,
-            lora_query=lora_query,
-            lora_key=lora_key,
-            lora_value=lora_value,
-            lora_projection=lora_projection,
-            lora_mlp=lora_mlp,
-            lora_head=lora_head,
-        ),
-        data,
-        checkpoint_dir,
-        out_dir,
-        train,
-        eval,
-    )
+    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval)
 
 
 def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDataModule, checkpoint_dir: Path, out_dir: Path, train: TrainArgs, eval: EvalArgs) -> None:
@@ -176,7 +184,7 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDat
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final LoRA checkpoint at the end of training
-    save_path = out_dir / "final" / "lit_model.pth"
+    save_path = out_dir / "final" / "lit_model.pth.lora"
     save_path.parent.mkdir(parents=True, exist_ok=True)
     save_lora_checkpoint(fabric, model, save_path)
     if fabric.global_rank == 0:
@@ -220,6 +228,7 @@ def fit(
     iter_num = 0
     total_lengths = 0
     total_t0 = time.perf_counter()
+    val_loss = "n/a"
 
     while step_count < max_steps and train_iterator.epoch < train.epochs:
         iter_num += 1
@@ -263,9 +272,14 @@ def fit(
                 ),
                 "learning_rate": scheduler.get_last_lr()[0],
             }
+            if isinstance(val_loss, torch.Tensor):
+                val_loss = f"{val_loss:.3f}"
             fabric.print(
-                f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
-                f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step)' if not is_accumulating else ''}"
+                f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} step {metrics['step']} |"
+                f" loss train: {metrics['loss']:.3f},"
+                f" val: {val_loss} |"
+                f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
+                f"{' (step)' if not is_accumulating else ''}"
             )
             fabric.log_dict(metrics, step=iter_num)
 
@@ -277,8 +291,9 @@ def fit(
             metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
             fabric.log_dict(metrics, step=iter_num)
             fabric.barrier()
-        if not is_accumulating and step_count % train.save_interval == 0:
-            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth"
+
+        if train.save_interval is not None and not is_accumulating and step_count % train.save_interval == 0:
+            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth.lora"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             save_lora_checkpoint(fabric, model, checkpoint_file)
             if fabric.global_rank == 0:

@@ -24,7 +24,7 @@ Below is a table of all datasets that are currently supported in LitGPT:
 The steps here only need to be done once before preparing the finetuning datasets in the following subsections:
 
 1. Follow the instructions in the [README](../README.md) to install the dependencies.
-2. Download and convert the weights following our [guide](download_falcon.md).
+2. Download and convert the weights following our [guide](download_model_weights.md).
 
 For the following examples, we will focus on finetuning with the `litgpt/finetune/lora.py` script and use a Falcon 7B model.
 However, the same steps apply to all other models and finetuning scripts.
@@ -32,7 +32,7 @@ Please read the [tutorials/finetune_*.md](.) documents for more information abou
 
 > [!IMPORTANT]
 > By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, especially in the cases of LIMA and Dolly,
-> you can try to lower the context length by setting the `--train.max_seq_length` parameter, for example, `python litgpt/finetune/lora.py --train.max_seq_length 256`. For more information on truncating datasets, see the *Truncating datasets* section in the Alpaca section near the top of this article.
+> you can try to lower the context length by setting the `--train.max_seq_length` parameter, for example, `litgpt finetune lora --train.max_seq_length 256`. For more information on truncating datasets, see the *Truncating datasets* section in the Alpaca section near the top of this article.
 
 &nbsp;
 
@@ -47,7 +47,7 @@ In its development, the creators leveraged the data generation methodology from 
 The original [Alpaca](https://crfm.stanford.edu/2023/03/13/alpaca.html) dataset can be used as follows:
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data Alpaca \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
@@ -61,7 +61,7 @@ By default, the finetuning scripts will determine the size of the longest tokeni
 In this case, a cut-off of 256 may be a reasonable choice:
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data Alpaca \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 256
@@ -86,7 +86,7 @@ dataset consists of 52,000 instructions and responses.
 The original [Alpaca-GPT4](https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM) dataset can be used as follows:
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data AlpacaGPT4 \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
@@ -104,7 +104,7 @@ The Alpaca-GPT4 dataset distribution is shown below.
 To use Alpaca Libre instead of the original Alpaca dataset, use the following command:
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data Alpaca \
   --data.file_url "https://raw.githubusercontent.com/mobarski/alpaca-libre/main/data/output/alpaca_libre_ok_tasks_v4.json" \
   --data.file_name "alpaca_libre_data_cleaned_archive.json" \
@@ -118,7 +118,7 @@ The Alpaca Libre dataset distribution is shown below.
 You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 256 may be a good choice:
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data Alpaca \
   --data.file_url "https://raw.githubusercontent.com/mobarski/alpaca-libre/main/data/output/alpaca_libre_ok_tasks_v4.json" \
   --data.file_name "alpaca_libre_data_cleaned_archive.json" \
@@ -135,7 +135,7 @@ The Deita dataset (short for Data-Efficient Instruction Tuning for Alignment) is
 Using Falcon 7b as an example, we can use the dataset as follows:
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data Deita \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
@@ -156,7 +156,7 @@ The Deita dataset distribution including multit-turn conversations is depicted i
 You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 512 may be a good choice:
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data Deita \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 512
@@ -172,7 +172,7 @@ The Dolly dataset is a publicly available collection of 15k instruction-followin
 The usage is similar to the Alpaca dataset described above. Using Falcon 7b as an example, we can use the dataset as follows:
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data Dolly \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
 ```
@@ -184,7 +184,7 @@ The Dolly dataset distribution is shown below.
 You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 512 may be a good choice:
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data Dolly \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 256
@@ -225,7 +225,7 @@ The LongForm dataset distribution is shown below.
 You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 1500 may be a good choice:
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data LongForm \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 1500
@@ -242,7 +242,7 @@ The usage is similar to the Dolly dataset described above except that it require
 ```bash
 export HF_TOKEN="insert_your_huggingface_token_here"
 
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data LIMA \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
@@ -258,7 +258,7 @@ The LIMA dataset distribution is shown below.
 You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 512 may be a good choice:
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data LIMA \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 512
@@ -274,7 +274,7 @@ FLAN is a collection of several datset subsets by Google. In particular, the pro
 By default, all subsets (1,386,050 samples) and validations sets (367,190 subsets) are combined into a single dataset:
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data FLAN \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
@@ -283,7 +283,7 @@ However, you can also select individual subsets via comma-separated strings as f
 
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data FLAN \
   --data.subsets "aeslc_10templates,ag_news_subset_10templates,anli_r1_10templates" \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
@@ -337,7 +337,7 @@ You can prepare custom dataset using a JSON file where each row is a dictionary 
 Then simply run any of the finetuning scripts with this input:
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data JSON \
   --data.json_path path/to/your/data.json \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
@@ -345,26 +345,28 @@ python litgpt/finetune/lora.py \
 
 You can also customize how the dataset is read by using these additional parameters
 
-- `test_split_fraction`: The fraction of the data to split. Defaults to `0.1`
+- `val_split_fraction`: The fraction of the data to split. Defaults to `0.1`
 
 - `seed`: The seed value to reproduce the same random splits for train and test data.
 
 - `mask_inputs`: Whether to mask the prompt section from the label (with `ignore_index`).
 
-- `ignore_index`: The index to use for labels that should be ignored. Defaults to `-1` (used when `mask_inputs` is `True`).
+- `ignore_index`: The index to use for labels that should be ignored. Defaults to `-100` (used when `mask_inputs` is `True`).
 
 To use the settings described above, you can add the respective command line arguments when calling the finetuning scripts as shown in the example below:
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --data JSON \
   --data.json_path path/to/your/data.json \
-  --data.test_split_fraction 0.1 \
+  --data.val_split_fraction 0.1 \
   --data.seed 42 \
   --data.mask_inputs False \
-  --data.ignore_index -1 \
+  --data.ignore_index -100 \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
+
+You can also pass a directory containing a `train.json` and `val.json` to `--data.json_path` to define a fixed train/val split.
 
 &nbsp;
 

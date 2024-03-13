@@ -1,7 +1,6 @@
-# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+    # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import dataclasses
 import os
-import sys
 import time
 from pathlib import Path
 from pprint import pprint
@@ -18,6 +17,7 @@ from torch.utils.data import DataLoader
 from litgpt.adapter import GPT, Block, Config, adapter_filter, mark_only_adapter_as_trainable
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca, LitDataModule
+from litgpt.generate.base import generate
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
@@ -32,12 +32,6 @@ from litgpt.utils import (
     copy_config_files,
     save_hyperparameters,
 )
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-from generate.base import generate
 
 
 def setup(
@@ -185,6 +179,7 @@ def fit(
     iter_num = 0
     total_lengths = 0
     total_t0 = time.perf_counter()
+    val_loss = "n/a"
 
     while step_count < max_steps and train_iterator.epoch < train.epochs:
         iter_num += 1
@@ -215,9 +210,14 @@ def fit(
                 time=t1 - total_t0, batches=iter_num, samples=iter_num * train.micro_batch_size, lengths=total_lengths
             )
             throughput.compute_and_log(step=iter_num)
+            if isinstance(val_loss, torch.Tensor):
+                val_loss = f"{val_loss:.3f}"
             fabric.print(
-                f"iter {iter_num} | step {step_count}: loss {loss_item:.4f}, iter time:"
-                f" {(t1 - iter_t0) * 1000:.2f} ms{' (optimizer.step)' if not is_accumulating else ''}"
+                f"Epoch {train_iterator.epoch+1} | iter {iter_num} step {step_count} |"
+                f" loss train: {loss_item:.3f},"
+                f" val: {val_loss} |"
+                f" iter time: {(t1 - iter_t0) * 1000:.2f} ms"
+                f"{' (step)' if not is_accumulating else ''}"
             )
 
         if not is_accumulating and step_count % eval.interval == 0:
@@ -226,7 +226,7 @@ def fit(
             t1 = time.perf_counter() - t0
             fabric.print(f"iter {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
             fabric.barrier()
-        if not is_accumulating and step_count % train.save_interval == 0:
+        if train.save_interval is not None and not is_accumulating and step_count % train.save_interval == 0:
             checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             save_adapter_checkpoint(fabric, model, checkpoint_file)

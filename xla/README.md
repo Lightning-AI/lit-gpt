@@ -50,7 +50,7 @@ Once inside the machine, clone the repository and install the dependencies:
 ```shell
 git clone https://github.com/Lightning-AI/litgpt
 cd litgpt
-pip install -r requirements.txt
+pip install .
 ```
 
 Install Optimized BLAS:
@@ -78,7 +78,7 @@ export PJRT_DEVICE=TPU
 > An extensive guide on setup and available options can be found [here](https://cloud.google.com/tpu/docs/v4-users-guide).
 
 Since a new machine was created, you may need to download pretrained weights.
-They can be copied to the machine using `gcloud compute tpus tpu-vm scp`, or you can follow the steps described in our [downloading guide](download_stablelm.md).
+They can be copied to the machine using `gcloud compute tpus tpu-vm scp`, or you can follow the steps described in our [downloading guide](download_model_weights.md).
 
 It is also recommended to set up a persistent disk from which to load checkpoints.
 Follow [this guide](https://cloud.google.com/tpu/docs/setup-persistent-disk#setting_up_a_tpu_vm_and_a_persistent_disk) to do so.

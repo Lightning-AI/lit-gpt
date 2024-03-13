@@ -6,10 +6,10 @@ from typing import Optional
 
 @dataclass
 class TrainArgs:
-    """Training related arguments"""
+    """Training-related arguments"""
 
-    save_interval: int = 1000
-    """Number of optimizer steps between checkpoints"""
+    save_interval: Optional[int] = 1000
+    """Number of optimizer steps between saving checkpoints"""
     log_interval: int = 1
     """Number of iterations between logging calls"""
     global_batch_size: int = 64
@@ -19,16 +19,16 @@ class TrainArgs:
     lr_warmup_steps: int = 100
     """Number of iterations with learning rate warmup active"""
     epochs: Optional[int] = None
-    """Number of epochs to run"""
+    """Number of epochs to train on"""
     # TODO: `pretrain` is the only script using `max_tokens` explicitly. replace it with epoch_size*epochs?
     max_tokens: Optional[int] = None
     """Total number of tokens to train on"""
     max_steps: Optional[int] = None
-    """Limits the number of optimizer steps to run."""
+    """Limits the number of optimizer steps to run"""
     max_seq_length: Optional[int] = None
-    """Limits the length of samples. Off by default"""
+    """Limits the length of samples"""
     tie_embeddings: Optional[bool] = None
-    """Whether to tie the embedding weights with the language modelling head weights."""
+    """Whether to tie the embedding weights with the language modeling head weights"""
 
     # Optimization args
     learning_rate: float = 1e-3
@@ -53,7 +53,7 @@ class TrainArgs:
 
 @dataclass
 class EvalArgs:
-    """Evaluation related arguments"""
+    """Evaluation-related arguments"""
 
     interval: int = 600
     """Number of optimizer steps between evaluation calls"""

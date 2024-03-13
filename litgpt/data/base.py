@@ -60,7 +60,7 @@ class SFTDataset(Dataset):
         prompt_style: Union[str, PromptStyle],
         max_seq_length: int = -1,
         mask_prompt: bool = True,
-        ignore_index: int = -1,
+        ignore_index: int = -100,
         transform: Optional[Callable[[Any], Any]] = None
     ) -> None:
         self.data = data
@@ -97,7 +97,7 @@ class SFTDataset(Dataset):
         return {"input_ids": encoded_prompt_and_response.type(torch.int64), "labels": labels.type(torch.int64)}
 
 
-def get_sft_collate_fn(max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -1):
+def get_sft_collate_fn(max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -100):
     """Returns the collate function for supervised finetuning (needed in the DataLoader).
 
     The collate function gets a list of dicts with keys `input_ids` and `labels`.
@@ -108,7 +108,7 @@ def get_sft_collate_fn(max_seq_length: int = -1, pad_id: int = 0, ignore_index: 
 
 
 def _sft_collate_fn(
-    samples: List[Dict[str, Tensor]], max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -1
+    samples: List[Dict[str, Tensor]], max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -100
 ) -> Dict[str, Tensor]:
 
     batched = {}

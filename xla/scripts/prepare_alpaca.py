@@ -3,32 +3,27 @@
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
 
 import json
-import sys
 from pathlib import Path
 from typing import Optional
 
 import torch
+import yaml
 from lightning_utilities.core.imports import RequirementCache
-from torch.utils.data import random_split
-from tqdm import tqdm
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import CLI
+from torch.utils.data import random_split
+from tqdm import tqdm
 
 
 def prepare(
     destination_path: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    test_split_fraction: float = 0.03865,  # to get exactly 2000 test samples,
+    val_split_fraction: float = 0.03865,  # to get exactly 2000 validation samples,
     seed: int = 42,
     mask_inputs: bool = False,  # as in alpaca-lora
     data_file_name: str = "alpaca_data_cleaned_archive.json",
     data_file_url: str = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json",
-    ignore_index: int = -1,
+    ignore_index: int = -100,
     max_seq_length: Optional[int] = None,
 ) -> None:
     """Prepare the Alpaca dataset for instruction tuning.
@@ -37,8 +32,8 @@ def prepare(
     which stores the preprocessed and tokenized prompts and labels.
     """
     if max_seq_length is None:
-        with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
-            config = json.load(file)
+        with open(checkpoint_dir / "model_config.yaml", "r", encoding="utf-8") as file:
+            config = yaml.safe_load(file)
             max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
@@ -53,7 +48,7 @@ def prepare(
 
     # Partition the dataset into train and test
     train_set, test_set = random_split(
-        data, [1.0 - test_split_fraction, test_split_fraction], generator=torch.Generator().manual_seed(seed)
+        data, [1.0 - val_split_fraction, val_split_fraction], generator=torch.Generator().manual_seed(seed)
     )
     train_set, test_set = list(train_set), list(test_set)
 

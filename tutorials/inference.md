@@ -3,7 +3,7 @@
 We demonstrate how to run inference (next token prediction) with the GPT base model in the [`generate.py`](generate.py) script:
 
 ```bash
-python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+litgpt generate base --prompt "Hello, my name is" --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 Output:
@@ -12,7 +12,7 @@ Output:
 Hello, my name is Levi Durrer, I'm an Austrian journalist - Chairman of the Press Blair Party, with 37 years in the Press Blair International, and two years in the Spectre of Austerity for the other. I'm crossing my fingers that you will feel
 ```
 
-The script assumes you have downloaded and converted the weights as described [here](download_stablelm.md).
+The script assumes you have downloaded and converted the weights as described [here](download_model_weights.md).
 
 This will run the 3B pre-trained model and require ~7 GB of GPU memory using the `bfloat16` datatype.
 
@@ -21,7 +21,7 @@ This will run the 3B pre-trained model and require ~7 GB of GPU memory using the
 You can also chat with the model interactively:
 
 ```bash
-python chat/base.py --checkpoint_dir checkpoints/stabilityai/stablelm-tuned-alpha-3b
+litgpt chat --checkpoint_dir checkpoints/stabilityai/stablelm-tuned-alpha-3b
 ```
 
 This script can work with any checkpoint. For the best chat-like experience, we recommend using it with a checkpoints
@@ -35,7 +35,7 @@ Check out our [quantization tutorial](quantize.md).
 
 We offer two scripts to leverage multiple devices for inference.
 
-### [`generate/sequentially.py`](../generate/sequentially.py)
+### [`litgpt/generate/sequentially.py`](../litgpt/generate/sequentially.py)
 
 Allows you to run models that wouldn't fit in a single card by partitioning the transformer blocks across all your devices and running them sequentially.
 
@@ -43,7 +43,7 @@ For instance, `meta-llama/Llama-2-70b-chat-hf` would require ~140 GB of GPU memo
 With 80 transformer layers, we could partition them across 8, 5, 4, or 2 devices.
 
 ```shell
-python generate/sequentially.py \
+litgpt generate sequentially \
   --checkpoint_dir checkpoints/meta-llama/Llama-2-70b-chat-hf \
   --max_new_tokens 256 \
   --num_samples 2
@@ -63,7 +63,7 @@ Note that the memory usage will also depend on the `max_new_tokens` value used.
 The script also supports quantization, using 4-bit precision, we can now use 2 GPUs
 
 ```shell
-python generate/sequentially.py \
+litgpt generate sequentially \
   --checkpoint_dir checkpoints/meta-llama/Llama-2-70b-chat-hf \
   --max_new_tokens 256 \
   --num_samples 2 \
@@ -79,7 +79,7 @@ python generate/sequentially.py \
 
 Smaller devices can also be used to run inference with this technique.
 
-### [`generate/tp.py`](../generate/tp.py)
+### [`litgpt/generate/tp.py`](../litgpt/generate/tp.py)
 
 Uses tensor parallelism (TP) to run models that wouldn't fit in a single card by sharding the MLP and Attention QKV linear layers across all your devices.
 
@@ -89,7 +89,7 @@ With an intermediate size of 28672, we can use 2, 4, 7, or 8 devices. With a QKV
 Since the script is configured to shard both, the intersection is used: we can only use 2, 4, or 8 devices.
 
 ```shell
-python generate/tp.py \
+litgpt generate tp \
   --checkpoint_dir checkpoints/meta-llama/Llama-2-70b-chat-hf \
   --max_new_tokens 256 \
   --num_samples 2
@@ -108,7 +108,7 @@ Note that the memory usage will also depend on the `max_new_tokens` value used.
 The script also supports quantization, using 4-bit precision, we can now use 2 GPUs
 
 ```shell
-python generate/tp.py \
+litgpt generate tp \
   --checkpoint_dir checkpoints/meta-llama/Llama-2-70b-chat-hf \
   --max_new_tokens 256 \
   --num_samples 2 \

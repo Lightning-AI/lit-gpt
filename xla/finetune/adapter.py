@@ -14,13 +14,14 @@ from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import XLAFSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor, measure_flops
 
+from litgpt.adapter import GPT, Block, Config, adapter_filter, mark_only_adapter_as_trainable
+from litgpt.tokenizer import Tokenizer
+from litgpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, estimate_flops, lazy_load, num_parameters
+
 # support running without installing as a package
 wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
 
-from litgpt.adapter import GPT, Block, Config, adapter_filter, mark_only_adapter_as_trainable
-from litgpt.tokenizer import Tokenizer
-from litgpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, estimate_flops, lazy_load, num_parameters
 from xla.scripts.prepare_alpaca import generate_prompt
 from xla.generate.base import generate
 from xla.utils import rank_print, sequential_load_and_fsdp_wrap

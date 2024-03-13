@@ -15,11 +15,7 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.utilities import rank_zero_only
 from torch.distributed._functional_collectives import all_reduce
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-import generate.base as generate_base
+import litgpt.generate.base as generate_base
 from litgpt import GPT, Config, Tokenizer
 from litgpt.model import CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
 from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision
@@ -130,6 +126,9 @@ def main(
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+        bnb_logger = logging.getLogger("lightning.fabric.plugins.precision.bitsandbytes")
+        bnb_logger.setLevel(logging.DEBUG)
+        bnb_logger.debug = rank_zero_only(bnb_logger.debug)
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
@@ -139,7 +138,7 @@ def main(
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    config = Config.from_json(checkpoint_dir / "lit_config.json")
+    config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     model_file = "lit_model.pth"
     checkpoint_path = checkpoint_dir / model_file
@@ -217,9 +216,5 @@ def main(
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
-
-    bnb_logger = logging.getLogger("lightning.fabric.plugins.precision.bitsandbytes")
-    bnb_logger.setLevel(logging.DEBUG)
-    bnb_logger.debug = rank_zero_only(bnb_logger.debug)
 
     CLI(main)

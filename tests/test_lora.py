@@ -203,7 +203,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
             data=Alpaca(
                 download_dir=alpaca_path.parent,
                 file_name=alpaca_path.name,
-                test_split_fraction=0.5,
+                val_split_fraction=0.5,
                 num_workers=0
             ),
             checkpoint_dir=fake_checkpoint_dir,
@@ -219,17 +219,17 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
     for checkpoint_dir in checkpoint_dirs:
         assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {
-            "lit_model.pth",
-            "lit_config.json",
+            "lit_model.pth.lora",
+            "model_config.yaml",
             "tokenizer_config.json",
             "tokenizer.json",
             "hyperparameters.yaml",
-            "prompt_style.json",
+            "prompt_style.yaml",
         }
-    assert (out_dir / "version_0" / "metrics.csv").is_file()
+    assert (out_dir / "logs" / "csv" / "version_0" / "metrics.csv").is_file()
 
     logs = stdout.getvalue()
-    assert logs.count("optimizer.step") == 6
+    assert logs.count("(step)") == 6
     assert logs.count("val loss") == 3
     assert "of trainable parameters: 512" in logs
 
@@ -631,7 +631,7 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
             data=Alpaca(
                 download_dir=alpaca_path.parent,
                 file_name=alpaca_path.name,
-                test_split_fraction=0.5,
+                val_split_fraction=0.5,
                 num_workers=0,
             ),
             checkpoint_dir=fake_checkpoint_dir,

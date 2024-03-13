@@ -2,21 +2,20 @@
 import dataclasses
 import math
 import os
-import sys
 import time
 from pathlib import Path
 from pprint import pprint
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Literal
 
 import lightning as L
 import torch
-from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
 from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca, LitDataModule
+from litgpt.generate.base import generate
 from litgpt.model import GPT, Block, Config
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
@@ -31,23 +30,17 @@ from litgpt.utils import (
     parse_devices,
     copy_config_files,
     save_hyperparameters,
+    choose_logger,
 )
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-from generate.base import generate
 
 
 def setup(
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    out_dir: Path = Path("out/finetune/full"),
     precision: Optional[str] = None,
     devices: Union[int, str] = 1,
     resume: Union[bool, Path] = False,
-    seed: int = 1337,
     data: Optional[LitDataModule] = None,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/finetune/full"),
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -59,13 +52,32 @@ def setup(
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
+    logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
+    seed: int = 1337,
 ) -> None:
+    """Finetune a model.
+
+    Arguments:
+        checkpoint_dir: The path to the base model's checkpoint directory to load for finetuning.
+        out_dir: Directory in which to save checkpoints and logs.
+        precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
+        devices: How many devices/GPUs to use
+        resume: Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
+            from the latest checkpoint in ``out_dir``.
+        data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
+        train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
+        eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        logger_name: The name of the logger to send metrics to.
+        seed: The random seed to use for reproducibility.
+    """
 
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
+    config = Config.from_name(name=checkpoint_dir.name)
 
     precision = precision or get_default_supported_precision(training=True)
+    logger = choose_logger(logger_name, out_dir, name=f"finetune-{config.name}", resume=resume, log_interval=train.log_interval)
 
     if devices > 1:
         strategy = FSDPStrategy(
@@ -78,9 +90,8 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.launch(main, devices, resume, seed, Config.from_name(name=checkpoint_dir.name), data, checkpoint_dir, out_dir, train, eval)
+    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval)
 
 
 def main(
@@ -193,6 +204,7 @@ def fit(
         fabric.device
     )
     fabric.barrier()
+    val_loss = "n/a"
 
     while state["step_count"] < max_steps and train_iterator.epoch < train.epochs:
         state["iter_num"] += 1
@@ -230,9 +242,14 @@ def fit(
                 ),
                 "learning_rate": scheduler.get_last_lr()[0],
             }
+            if isinstance(val_loss, torch.Tensor):
+                val_loss = f"{val_loss:.3f}"
             fabric.print(
-                f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
-                f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step)' if not is_accumulating else ''}"
+                f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} step {metrics['step']} |"
+                f" loss train: {metrics['loss']:.3f},"
+                f" val: {val_loss} |"
+                f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
+                f"{' (step)' if not is_accumulating else ''}"
             )
             fabric.log_dict(metrics, step=state["iter_num"])
 
@@ -244,7 +261,7 @@ def fit(
             metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
             fabric.log_dict(metrics, step=state["iter_num"])
             fabric.barrier()
-        if not is_accumulating and state["step_count"] % train.save_interval == 0:
+        if train.save_interval is not None and not is_accumulating and state["step_count"] % train.save_interval == 0:
             checkpoint_file = out_dir / f"step-{state['step_count']:06d}" / "lit_model.pth"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             fabric.print(f"Saving checkpoint to {str(checkpoint_file.parent)!r}")

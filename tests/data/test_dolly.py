@@ -5,7 +5,7 @@ def test_dolly(mock_tokenizer, dolly_path):
     from litgpt.prompts import Alpaca as AlpacaPromptStyle
 
     alpaca = Dolly(
-        test_split_fraction=0.5,
+        val_split_fraction=0.5,
         download_dir=dolly_path.parent,
         file_name=dolly_path.name,
         num_workers=0,

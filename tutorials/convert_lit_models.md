@@ -5,22 +5,20 @@ LitGPT weights need to be converted to a format that Hugging Face understands wi
 We provide a helpful script to convert models LitGPT models back to their equivalent Hugging Face Transformers format:
 
 ```sh
-python litgpt/scripts/convert_lit_checkpoint.py \
-    --checkpoint_path checkpoints/repo_id/lit_model.pth \
-    --output_path output_path/converted.pth \
-    --config_path checkpoints/repo_id/config.json
+litgpt convert from_litgpt \
+    --checkpoint_dir checkpoint_dir \
+    --output_dir converted_dir
 ```
 
-These paths are just placeholders, you will need to customize them based on which finetuning or pretraining script you ran and it's configuration.
+These paths are just placeholders, you will need to customize them based on which finetuning or pretraining script you ran and its configuration.
 
 ### Loading converted LitGPT checkpoints into transformers
 
-If you want to load the converted checkpoints into a `transformers` model, please make sure you copied the original `config.json` file into the folder that contains the `converted.pth` file saved via `--output_path` above.
 
 For example,
 
 ```bash
-cp checkpoints/repo_id/config.json output_path/config.json
+cp checkpoints/repo_id/config.json converted/config.json
 ```
 
 Then, you can load the checkpoint file in a Python session as follows:
@@ -30,9 +28,9 @@ import torch
 from transformers import AutoModel
 
 
-state_dict = torch.load("output_path/converted.pth")
+state_dict = torch.load("output_dir/model.pth")
 model = AutoModel.from_pretrained(
-    "output_path/", local_files_only=True, state_dict=state_dict
+    "output_dir/", local_files_only=True, state_dict=state_dict
 )
 ```
 
@@ -49,7 +47,7 @@ model = AutoModel.from_pretrained("online_repo_id", state_dict=state_dict)
 Please note that if you want to convert a model that has been fine-tuned using an adapter like LoRA, these weights should be [merged](../litgpt/scripts/merge_lora.py) to the checkpoint prior to converting.
 
 ```sh
-python scripts/merge_lora.py \
+litgpt merge_lora \
     --checkpoint_dir path/to/lora/checkpoint_dir
 ```
 
@@ -75,7 +73,7 @@ by running `litgpt/scripts/download.py` without any additional arguments.
 Then, we download the model we specified via `$repo_id` above:
 
 ```bash
-python litgpt/scripts/download.py --repo_id $repo_id
+litgpt download --repo_id $repo_id
 ```
 
 2. Finetune the model:
@@ -84,7 +82,7 @@ python litgpt/scripts/download.py --repo_id $repo_id
 ```bash
 export finetuned_dir=out/lit-finetuned-model
 
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
    --checkpoint_dir checkpoints/$repo_id \
    --out_dir $finetuned_dir \
    --train.epochs 1 \
@@ -96,7 +94,7 @@ python litgpt/finetune/lora.py \
 Note that this step only applies if the model was finetuned with `lora.py` above and not when `full.py` was used for finetuning.
 
 ```bash
-python scripts/merge_lora.py \
+litgpt merge_lora \
     --checkpoint_dir $finetuned_dir/final
 ```
 
@@ -104,10 +102,9 @@ python scripts/merge_lora.py \
 4. Convert the finetuning model back into a HF format:
 
 ```bash
-python litgpt/scripts/convert_lit_checkpoint.py \
-   --checkpoint_path $finetuned_dir/final/lit_model.pth \
-   --output_path out/hf-tinyllama/converted_model.pth \
-   --config_path checkpoints/$repo_id/lit_config.json 
+litgpt convert from_litgpt \
+   --checkpoint_dir $finetuned_dir/final/ \
+   --output_dir out/hf-tinyllama/converted \
 ```
 
 
@@ -117,6 +114,6 @@ python litgpt/scripts/convert_lit_checkpoint.py \
 import torch
 from transformers import AutoModel
 
-state_dict = torch.load('out/hf-tinyllama/converted_model.pth')
+state_dict = torch.load('out/hf-tinyllama/converted/model.pth')
 model = AutoModel.from_pretrained("TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T", state_dict=state_dict)
 ```

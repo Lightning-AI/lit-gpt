@@ -1,6 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import json
+import yaml
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -107,29 +107,29 @@ class Config:
         return cls(**conf_dict)
 
     @classmethod
-    def from_json(cls, path: Union[str, Path], **kwargs: Any) -> Self:
+    def from_file(cls, path: Union[str, Path], **kwargs: Any) -> Self:
         with open(path, encoding="utf-8") as fp:
-            json_kwargs = json.load(fp)
-        json_kwargs.update(kwargs)
-        return cls(**json_kwargs)
+            file_kwargs = yaml.safe_load(fp)
+        file_kwargs.update(kwargs)
+        return cls(**file_kwargs)
 
     @classmethod
     def from_checkpoint(cls, path: Path, **kwargs: Any) -> Self:
-        """Automatically load `lit_config.json` and if it doesn't exist - a matching config from `litgpt/config.py`."""
-        if (config_path := path / "lit_config.json").is_file():
-            return cls.from_json(config_path, **kwargs)
+        """Automatically load `model_config.yaml` and if it doesn't exist - a matching config from `litgpt/config.py`."""
+        if (config_path := path / "model_config.yaml").is_file():
+            return cls.from_file(config_path, **kwargs)
         if (model_name := path.name) in name_to_config:
             return cls.from_name(model_name, **kwargs)
-        raise FileNotFoundError(f"For {str(path)!r} neither 'lit_config.json' nor matching config exists.")
+        raise FileNotFoundError(f"For {str(path)!r} neither 'model_config.yaml' nor matching config exists.")
 
     @property
     def mlp_class(self) -> Type:
-        # `self.mlp_class_name` cannot be the type to keep the config json serializable
+        # `self.mlp_class_name` cannot be the type to keep the config serializable
         return getattr(litgpt.model, self.mlp_class_name)
 
     @property
     def norm_class(self) -> Type:
-        # `self.norm_class_name` cannot be the type to keep the config json serializable
+        # `self.norm_class_name` cannot be the type to keep the config serializable
         if self.norm_class_name == "RMSNorm":
             from functools import partial
 

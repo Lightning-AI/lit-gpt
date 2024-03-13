@@ -23,6 +23,18 @@ def download_from_hub(
     dtype: Optional[str] = None,
     checkpoint_dir: Path = Path("checkpoints"),
 ) -> None:
+    """Download weights or tokenizer data from the Hugging Face Hub.
+
+    Arguments:
+        repo_id: The repository ID in the format ``org/name`` or ``user/name`` as shown in Hugging Face.
+        access_token: Optional API token to access models with restrictions.
+        tokenizer_only: Whether to download only the tokenizer files.
+        convert_checkpoint: Whether to convert the checkpoint files to the LitGPT format after downloading.
+        dtype: The data type to convert the checkpoint files to. If not specified, the weights will remain in the
+            dtype they are downloaded in.
+        checkpoint_dir: Where to save the downloaded files.
+    """
+
     if repo_id is None:
         from litgpt.config import configs
 

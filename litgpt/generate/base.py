@@ -11,10 +11,6 @@ import torch._dynamo.config
 import torch._inductor.config
 from lightning.fabric.plugins import BitsandbytesPrecision
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
 from litgpt import GPT, Config, Tokenizer, PromptStyle
 from litgpt.prompts import load_prompt_style, has_prompt_style
 from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
@@ -138,7 +134,7 @@ def main(
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    config = Config.from_json(checkpoint_dir / "lit_config.json")
+    config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 

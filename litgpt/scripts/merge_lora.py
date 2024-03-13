@@ -1,7 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 """This script merges the LoRA weights with the base model"""
-import os
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
 
@@ -18,25 +17,25 @@ def merge_lora(
     pretrained_checkpoint_dir: Optional[Path] = None,
     precision: Optional[str] = None,
 ) -> None:
-    """Merges the LoRA weights with the base model. See `litgpt/finetune/lora.py`.
+    """Merges the LoRA weights with the base model. See ``litgpt finetune lora``.
 
-    Merging happens in-place in the checkpoint directory that is given as input. It also saves
-    a backup file `lit_model.pth.lora` of the trained LoRA weights in case you still need it later.
+    Creates a new ``lit_model.pth`` file by merging the LoRA weights (``lit_model.pth.lora``)
+    with the original checkpoint weights.
 
     Args:
         checkpoint_dir: Path to the checkpoint directory with trained LoRA weights, which is the output of
-            `litgpt/finetune/lora.py`.
+            ``litgpt finetune --method lora``.
         pretrained_checkpoint_dir: Optional path to the checkpoint directory with the weights of the base model
             corresponding to the LoRA checkpoint. By default, this will automatically be inferred from the metadata
-            in the given `checkpoint_dir` directory. Only set this if the base model checkpoint directory
+            in the given `checkpoint_dir` directory. Only set this if the base model's checkpoint directory
             has moved or was renamed.
         precision: Optional precision setting to instantiate the model weights in. By default, this will
-            automatically be inferred from the metadata in the given `checkpoint_dir` directory.
+            automatically be inferred from the metadata in the given ``checkpoint_dir`` directory.
     """
-    check_valid_checkpoint_dir(checkpoint_dir)
+    check_valid_checkpoint_dir(checkpoint_dir, lora=True)
     if pretrained_checkpoint_dir is not None:
         check_valid_checkpoint_dir(pretrained_checkpoint_dir)
-    if (checkpoint_dir / "lit_model.pth.lora").is_file():
+    if (checkpoint_dir / "lit_model.pth").is_file():
         print("LoRA weights have already been merged in this checkpoint.")
         return
 
@@ -44,12 +43,12 @@ def merge_lora(
     precision = precision if precision is not None else lora_precision
 
     fabric = L.Fabric(devices=1, precision=precision)
-    config = Config.from_json(checkpoint_dir / "lit_config.json", **lora_params)
+    config = Config.from_file(checkpoint_dir / "model_config.yaml", **lora_params)
 
     with fabric.init_module(empty_init=True):
         model = GPT(config)
 
-    lora_path = checkpoint_dir / "lit_model.pth"
+    lora_path = checkpoint_dir / "lit_model.pth.lora"
     pretrained_checkpoint = lazy_load(pretrained_checkpoint_dir / "lit_model.pth")
     lora_checkpoint = lazy_load(lora_path)
 
@@ -60,15 +59,10 @@ def merge_lora(
 
     # Remove LoRA parameters and the LoRA linear substring
     state_dict = {k.replace("linear.", ""): v for k, v in model.state_dict().items() if not lora_filter(k, v)}
-    save_path = checkpoint_dir / "lit_model.pth.merged"
+    save_path = checkpoint_dir / "lit_model.pth"
     torch.save(state_dict, save_path)
 
-    # Make a backup of the LoRA weights (they are only a few MBs)
-    os.rename(checkpoint_dir / "lit_model.pth", checkpoint_dir / "lit_model.pth.lora")
-    os.rename(checkpoint_dir / "lit_model.pth.merged", checkpoint_dir / "lit_model.pth")
-
     fabric.print(f"Saved merged weights to {str(checkpoint_dir / 'lit_model.pth')!r}")
-    fabric.print(f"A backup of the old LoRA weights is in {str(checkpoint_dir / 'lit_model.pth.lora')!r}")
 
 
 def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path, Optional[str]]:

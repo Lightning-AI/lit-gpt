@@ -1,6 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import json
 import subprocess
 import sys
 from pathlib import Path
@@ -8,6 +7,7 @@ from unittest.mock import ANY, Mock
 
 import datasets
 import pytest
+import yaml
 from lightning import Fabric
 
 
@@ -60,8 +60,8 @@ def test_eval_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     import eval.lm_eval_harness as module
 
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
-    with open(fake_checkpoint_dir / "lit_config.json", "w") as fp:
-        json.dump(model_config, fp)
+    with open(fake_checkpoint_dir / "model_config.yaml", "w") as fp:
+        yaml.dump(model_config, fp)
     monkeypatch.setattr(module, "load_checkpoint", Mock())
 
     tokenizer_mock = Mock()

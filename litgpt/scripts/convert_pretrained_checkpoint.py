@@ -8,7 +8,7 @@ from litgpt.utils import CLI, incremental_save, copy_config_files
 
 
 @torch.inference_mode()
-def convert_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
+def convert_pretrained_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
     """Convert a checkpoint after pretraining.
 
     The pretrained checkpoint contains optimizer states and several other metadata that are not needed after training
@@ -49,4 +49,4 @@ def convert_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
 
 
 if __name__ == "__main__":
-    CLI(convert_checkpoint)
+    CLI(convert_pretrained_checkpoint)

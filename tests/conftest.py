@@ -25,7 +25,7 @@ def fake_checkpoint_dir(tmp_path):
     checkpoint_dir = tmp_path / "checkpoints" / "tmp"
     checkpoint_dir.mkdir(parents=True)
     (checkpoint_dir / "lit_model.pth").touch()
-    (checkpoint_dir / "lit_config.json").touch()
+    (checkpoint_dir / "model_config.yaml").touch()
     (checkpoint_dir / "tokenizer.json").touch()
     (checkpoint_dir / "tokenizer_config.json").touch()
     return checkpoint_dir

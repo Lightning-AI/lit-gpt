@@ -1,48 +1,122 @@
+
+# The path to the base model's checkpoint directory to load for finetuning. (type: <class 'Path'>, default: checkpoints/stabilityai/stablelm-base-alpha-3b)
+checkpoint_dir: checkpoints/meta-llama/Llama-2-7b-hf
+
+# Directory in which to save checkpoints and logs. (type: <class 'Path'>, default: out/lora)
+out_dir: out/finetune/lora-llama2-7b
+
+# The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true". (type: Optional[str], default: null)
 precision: bf16-true
-quantize: null
+
+# If set, quantize the model with this algorithm. See ``tutorials/quantize.md`` for more information. (type: Optional[Literal['nf4', 'nf4-dq', 'fp4', 'fp4-dq', 'int8-training']], default: null)
+quantize:
+
+# How many devices/GPUs to use. (type: Union[int, str], default: 1)
 devices: 1
-seed: 1337
+
+# The LoRA rank. (type: int, default: 8)
 lora_r: 32
+
+# The LoRA alpha. (type: int, default: 16)
 lora_alpha: 16
+
+# The LoRA dropout value. (type: float, default: 0.05)
 lora_dropout: 0.05
+
+# Whether to apply LoRA to the query weights in attention. (type: bool, default: True)
 lora_query: true
+
+# Whether to apply LoRA to the key weights in attention. (type: bool, default: False)
 lora_key: false
+
+# Whether to apply LoRA to the value weights in attention. (type: bool, default: True)
 lora_value: true
+
+# Whether to apply LoRA to the output projection in the attention block. (type: bool, default: False)
 lora_projection: false
+
+# Whether to apply LoRA to the weights of the MLP in the attention block. (type: bool, default: False)
 lora_mlp: false
+
+# Whether to apply LoRA to output head in GPT. (type: bool, default: False)
 lora_head: false
+
+# Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
 data:
   class_path: litgpt.data.AlpacaGPT4
   init_args:
     mask_prompt: false
-    test_split_fraction: 0.03847
-    prompt_style: "alpaca"
-    ignore_index: -1
+    val_split_fraction: 0.03847
+    prompt_style: alpaca
+    ignore_index: -100
     seed: 42
     num_workers: 4
-    download_dir: data/alpacagpt4
-    file_url: https://raw.githubusercontent.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM/main/data/alpaca_gpt4_data.json
-    file_name: alpacagpt4_data_cleaned_archive.json
-checkpoint_dir: checkpoints/meta-llama/Llama-2-7b-hf
-out_dir: out/finetune/lora-llama2-7b
+
+# Training-related arguments. See ``litgpt.args.TrainArgs`` for details
 train:
+
+  # Number of optimizer steps between saving checkpoints (type: Optional[int], default: 1000)
   save_interval: 200
+
+  # Number of iterations between logging calls (type: int, default: 1)
   log_interval: 1
+
+  # Number of samples between optimizer steps across data-parallel ranks (type: int, default: 128)
   global_batch_size: 8
+
+  # Number of samples per data-parallel rank (type: int, default: 4)
   micro_batch_size: 2
+
+  # Number of iterations with learning rate warmup active (type: int, default: 100)
   lr_warmup_steps: 10
+
+  # Number of epochs to train on (type: Optional[int], default: 5)
   epochs: 1
-  max_tokens: null
-  max_steps: null
+
+  # Total number of tokens to train on (type: Optional[int], default: null)
+  max_tokens:
+
+  # Limits the number of optimizer steps to run. (type: Optional[int], default: null)
+  max_steps:
+
+  # Limits the length of samples. Off by default (type: Optional[int], default: null)
   max_seq_length: 512
-  tie_embeddings: null
+
+  # Whether to tie the embedding weights with the language modeling head weights. (type: Optional[bool], default: null)
+  tie_embeddings:
+
+  #   (type: float, default: 0.0003)
   learning_rate: 0.0002
+
+  #   (type: float, default: 0.02)
   weight_decay: 0.0
+
+  #   (type: float, default: 0.9)
   beta1: 0.9
+
+  #   (type: float, default: 0.95)
   beta2: 0.95
-  max_norm: null
+
+  #   (type: Optional[float], default: null)
+  max_norm:
+
+  #   (type: float, default: 6e-05)
   min_lr: 6.0e-05
+
+# Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details
 eval:
+
+  # Number of optimizer steps between evaluation calls (type: int, default: 100)
   interval: 100
+
+  # Number of tokens to generate (type: Optional[int], default: 100)
   max_new_tokens: 100
+
+  # Number of iterations (type: int, default: 100)
   max_iters: 100
+
+# The name of the logger to send metrics to. (type: Literal['wandb', 'tensorboard', 'csv'], default: csv)
+logger_name: csv
+
+# The random seed to use for reproducibility. (type: int, default: 1337)
+seed: 1337

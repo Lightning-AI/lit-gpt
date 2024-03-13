@@ -239,10 +239,12 @@ def check_conversion_supported(lit_weights: Dict[str, torch.Tensor]) -> None:
 
 
 @torch.inference_mode()
-def convert_lit_checkpoint(checkpoint_path: Path, output_path: Path, config_path: Path) -> None:
-    config = Config.from_json(config_path)
+def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
+    """Convert a LitGPT trained checkpoint into a Hugging Face Transformers checkpoint."""
+    config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "model.pth"
 
     if "falcon" in config.name:
         copy_fn = partial(copy_weights_falcon, config.name)
@@ -257,7 +259,7 @@ def convert_lit_checkpoint(checkpoint_path: Path, output_path: Path, config_path
     # initialize a new empty state dict to hold our new weights
     sd = {}
     with incremental_save(output_path) as saver:
-        lit_weights = lazy_load(checkpoint_path)
+        lit_weights = lazy_load(checkpoint_dir / "lit_model.pth")
         lit_weights = lit_weights.get("model", lit_weights)
         check_conversion_supported(lit_weights)
         copy_fn(sd, lit_weights, saver=saver)

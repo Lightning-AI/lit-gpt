@@ -18,8 +18,8 @@ class OpenWebText(LitDataModule):
     data_path: Union[str, Path] = Path("data/openwebtext")
     """The path to the data directory, containing two folders 'train' and 'val'
     which are the output of the preprocessing step. The path can also be a remote path (e.g., s3://)."""
-    test_split_fraction: float = 0.0005
-    """The fraction of data that should be put aside for validation/testing."""
+    val_split_fraction: float = 0.0005
+    """The fraction of data that should be put aside for validation."""
     seed: int = 42
     """The seed to use for shuffling the training data."""
     num_workers: int = 8
@@ -59,7 +59,7 @@ class OpenWebText(LitDataModule):
         dataset = load_dataset("openwebtext", num_proc=(os.cpu_count() // 2), trust_remote_code=True)
 
         # Split the data in training and validation
-        split_dataset = dataset["train"].train_test_split(test_size=self.test_split_fraction, seed=self.seed, shuffle=True)
+        split_dataset = dataset["train"].train_test_split(test_size=self.val_split_fraction, seed=self.seed, shuffle=True)
         split_dataset["val"] = split_dataset.pop("test")  # rename the test split to val
 
         def tokenize(data: Dataset, index: int):

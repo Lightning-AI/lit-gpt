@@ -49,13 +49,13 @@ In order to start pretraining litgpt on it, you need to read, tokenize, and writ
 First, install additional dependencies for preprocessing:
 
 ```bash
-pip install -r requirements-all.txt
+pip install '.[all]'
 ```
 
 You will need to have the tokenizer config available:
 
 ```bash
-python litgpt/scripts/download.py \
+litgpt download \
    --repo_id meta-llama/Llama-2-7b-hf \
    --access_token your_hf_token \
    --tokenizer_only true
@@ -100,7 +100,7 @@ In the above we are assuming that you will be using the same tokenizer as used i
 Running the pretraining script with its default settings requires at least 8 A100 GPUs.
 
 ```bash
-python litgpt/pretrain.py --config config_hub/pretrain/tinyllama.yaml
+litgpt pretrain --config config_hub/pretrain/tinyllama.yaml
 ```
 
 The script will save checkpoints periodically to the folder `out/`.
@@ -111,14 +111,14 @@ Note that `pretrain` is not actually a model-specific training script, so feel f
 or change the model type and size by passing a different string to the model name argument, for example:
 
 ```shell
-python litgpt/pretrain.py --model_name Gemma-2b
+litgpt pretrain --model_name Gemma-2b
 ```
 
 The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/litgpt/litgpt/config.py) file.
 You can
 
 1) either search this file for lines containing "name =",
-2) or run `python litgpt/scripts/download.py` without additional command line arguments
+2) or run `litgpt download` without additional command line arguments
 
 Keep in mind that training with a single machine will take weeks. To speed up the process, you'll need access to a cluster.
 Once you're in a cluster, you can follow [these instructions](https://lightning.ai/docs/fabric/stable/fundamentals/launch.html#launch-on-a-cluster)
@@ -136,7 +136,7 @@ GPU memory. For more tips to avoid out-of-memory issues, please also see the mor
 [Dealing with out-of-memory (OOM) errors](oom.md) guide.
 
 Last, logging is kept minimal in the script, but for long-running experiments we recommend switching to a proper experiment tracker.
-As an example, we included WandB (set `use_wandb=True`) to show how you can integrate any experiment tracking framework.
+As an example, we included WandB (set `--logger_name=wandb`) to show how you can integrate any experiment tracking framework.
 For reference, [here are the loss curves for our reproduction](https://api.wandb.ai/links/awaelchli/y7pzdpwy).
 
 ## Resume training
@@ -145,7 +145,7 @@ The checkpoints saved during pretraining contain all the information to resume i
 Simply rerun the script with the `--resume` argument added:
 
 ```bash
-python litgpt/pretrain.py \
+litgpt pretrain \
   --config config_hub/pretrain/tinyllama.yaml \
   --resume out/pretrain/tiny-llama/step-00060500
 ```
@@ -156,7 +156,7 @@ python litgpt/pretrain.py \
 After training is completed, you can convert the checkpoint to a format that can be loaded for evaluation, inference, finetuning etc.
 
 ```bash
-python litgpt/scripts/convert_pretrained_checkpoint.py \
+litgpt convert pretrained_checkpoint \
   --checkpoint_dir out/pretrain/tiny-llama/step-00060500 \
   --output_dir checkpoints/tiny-llama/final
 ```
@@ -164,7 +164,7 @@ python litgpt/scripts/convert_pretrained_checkpoint.py \
 After conversion, the output folder will contain these files:
 ```
 checkpoints/tiny-llama/final
-├── lit_config.json
+├── model_config.yaml
 ├── lit_model.pth
 ├── tokenizer_config.json
 ├── tokenizer.json

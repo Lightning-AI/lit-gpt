@@ -9,13 +9,9 @@ import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-from generate.base import generate
 from litgpt import Tokenizer, PromptStyle
 from litgpt.adapter_v2 import GPT, Config
+from litgpt.generate.base import generate
 from litgpt.prompts import load_prompt_style, has_prompt_style
 from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
 
@@ -31,15 +27,14 @@ def main(
     temperature: float = 0.8,
     precision: Optional[str] = None,
 ) -> None:
-    """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned GPT-AdapterV2 model.
-    See `litgpt/finetune/adapter_v2.py`.
+    """Generates a response based on a given instruction and an optional input. This script will only work with
+    checkpoints from the instruction-tuned adapter v2 model. See ``litgpt.finetune.adapter_v2``.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
-            `litgpt/finetune/adapter_v2.py`.
+            ``litgpt.finetune.adapter_v2``.
         checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
@@ -66,7 +61,7 @@ def main(
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    config = Config.from_json(checkpoint_dir / "lit_config.json")
+    config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 

@@ -11,8 +11,8 @@ from litgpt.data import SFTDataset
 class Alpaca2k(Alpaca):
     """Alpaca2k data module for supervised finetuning."""
 
-    test_split_fraction: float = 0.05  # to get exactly 100 test samples,
-    """The fraction of the dataset to use for the test/validation dataset. The rest is used for training."""
+    val_split_fraction: float = 0.05  # to get exactly 100 validation samples,
+    """The fraction of the dataset to use for the validation dataset. The rest is used for training."""
     download_dir: Path = Path("./data/alpaca2k")
     """The directory in which the downloaded datasetgets saved."""
     repo_id: str = field(repr=False, default="mhenrichsen/alpaca_2k_test")
@@ -30,7 +30,7 @@ class Alpaca2k(Alpaca):
 
         dataset = load_dataset(self.repo_id, cache_dir=self.download_dir)
 
-        train_validation_split = dataset["train"].train_test_split(test_size=self.test_split_fraction, seed=self.seed)
+        train_validation_split = dataset["train"].train_test_split(test_size=self.val_split_fraction, seed=self.seed)
         train_data = train_validation_split["train"]
         test_data = train_validation_split["test"]
 

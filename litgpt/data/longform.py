@@ -25,7 +25,7 @@ class LongForm(LitDataModule):
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
     prompt_style: Union[str, PromptStyle] = "longform"
     """The style to apply to instruction prompts. See `litgpt.prompts` for a list of available styles."""
-    ignore_index: int = -1
+    ignore_index: int = -100
     """The index to use for elements to be ignored in the label."""
     seed: int = 42
     """The random seed for shuffling the dataset."""

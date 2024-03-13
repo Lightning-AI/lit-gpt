@@ -1,0 +1,69 @@
+[project]
+name = "litgpt"
+version = "0.1.0"
+description = "Hackable implementation of state-of-the-art open-source LLMs"
+authors = [
+    { name = "Lightning AI", email = "contact@lightning.ai" },
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+
+dependencies = [
+    "torch>=2.2.0",
+    "lightning @ git+https://github.com/Lightning-AI/lightning@f23b3b1e7fdab1d325f79f69a28706d33144f27e",
+    # TODO: install from PyPI when https://github.com/omni-us/jsonargparse/pull/466 is released
+    "jsonargparse[signatures] @ git+https://github.com/omni-us/jsonargparse",
+]
+
+[project.urls]
+homepage = "https://github.com/lightning-AI/litgpt"
+documentation = "https://github.com/lightning-AI/litgpt/tutorials"
+
+[project.scripts]
+litgpt = "litgpt.__main__:main"
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-rerunfailures",
+    "pytest-timeout",
+    "transformers>=4.38.0",
+    "einops",
+    "protobuf",
+]
+all = [
+    "bitsandbytes==0.41.0",      # quantization
+    "scipy",                     # required by bitsandbytes
+    "sentencepiece",             # llama-based models
+    "tokenizers",                # pythia, falcon, redpajama
+    "datasets",                  # eval
+    "requests",                  # litgpt.data
+    "litdata",                   # litgpt.data
+    "zstandard",                 # litgpt.data.prepare_slimpajama.py
+    "pandas",                    # litgpt.data.prepare_starcoder.py
+    "pyarrow",                   # litgpt.data.prepare_starcoder.py
+    "tensorboard",               # litgpt.pretrain
+    "torchmetrics",              # litgpt.pretrain
+    "lm_eval @ git+https://github.com/EleutherAI/lm-evaluation-harness.git@115206dc89dad67b8b",
+    "huggingface_hub[hf_transfer]>=0.21.0"  # download
+]
+
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = [
+    "litgpt",
+    "litgpt.*",
+]
+exclude = []
+
+[tool.setuptools.package-data]
+litgpt = [
+    "LICENSE",
+    "README.md",
+]

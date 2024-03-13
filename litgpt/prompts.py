@@ -1,11 +1,12 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import importlib
-import json
 import re
 from abc import abstractmethod
 from json import dumps
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Type, Tuple, Union
+
+import yaml
 
 from litgpt.config import Config
 
@@ -338,13 +339,13 @@ def save_prompt_style(style: Union[str, PromptStyle], checkpoint_dir: Path) -> N
     cls = type(style)
     # Allow saving the full module path for user-defined prompt classes
     config = {"class_path": f"{cls.__module__}.{cls.__name__}"}
-    with open(checkpoint_dir / "prompt_style.json", "w") as file:
-        json.dump(config, file)
+    with open(checkpoint_dir / "prompt_style.yaml", "w") as file:
+        yaml.dump(config, file)
 
 
 def load_prompt_style(checkpoint_dir: Path) -> PromptStyle:
-    with open(checkpoint_dir / "prompt_style.json", "r") as file:
-        config = json.load(file)
+    with open(checkpoint_dir / "prompt_style.yaml", "r") as file:
+        config = yaml.safe_load(file)
     # Support loading the full module path for user-defined prompt classes
     full_module_path, cls_name = config["class_path"].rsplit(".", 1)
     module = importlib.import_module(full_module_path)
@@ -353,4 +354,4 @@ def load_prompt_style(checkpoint_dir: Path) -> PromptStyle:
 
 
 def has_prompt_style(checkpoint_dir: Path) -> bool:
-    return (checkpoint_dir / "prompt_style.json").is_file()
+    return (checkpoint_dir / "prompt_style.yaml").is_file()

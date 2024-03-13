@@ -50,11 +50,13 @@ def test_pretrain(_, tmp_path):
         assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
         for checkpoint_dir in checkpoint_dirs:
             # the `tokenizer_dir` is None by default, so only 'lit_model.pth' shows here
-            assert set(os.listdir(out_dir / checkpoint_dir)) == {"lit_model.pth", "lit_config.json"}
+            assert set(os.listdir(out_dir / checkpoint_dir)) == {"lit_model.pth", "model_config.yaml"}
+
+        assert (out_dir / "logs" / "tensorboard" / "version_0").is_dir()
 
         # logs only appear on rank 0
         logs = stdout.getvalue()
-        assert logs.count("optimizer.step") == 4
+        assert logs.count("(step)") == 4
         assert logs.count("val loss") == 4
         assert "Total parameters: 1,888" in logs
 

@@ -14,7 +14,7 @@ _LIGHTNING_AVAILABLE = RequirementCache("lightning>=2.2.0.dev0")
 if not bool(_LIGHTNING_AVAILABLE):
     raise ImportError(
         "LitGPT requires lightning nightly. Please run:\n"
-        f" pip uninstall -y lightning; pip install -r requirements.txt\n{str(_LIGHTNING_AVAILABLE)}"
+        f" pip uninstall -y lightning; pip install litgpt\n{str(_LIGHTNING_AVAILABLE)}"
     )
 
 # Suppress excessive warnings, see https://github.com/pytorch/pytorch/issues/111632

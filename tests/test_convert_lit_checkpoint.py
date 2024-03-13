@@ -9,6 +9,8 @@ from urllib.request import urlretrieve
 
 import pytest
 import torch
+import yaml
+
 from conftest import RunIf
 
 wd = Path(__file__).parent.parent.absolute()
@@ -20,20 +22,21 @@ def test_convert_lit_checkpoint(tmp_path):
 
     ours_config = Config.from_name("Llama-2-7b-hf", block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
     ours_model = GPT(ours_config)
-    checkpoint_path = tmp_path / "foo.ckpt"
-    config_path = tmp_path / "foo.json"
+    checkpoint_path = tmp_path / "lit_model.pth"
+    config_path = tmp_path / "model_config.yaml"
     torch.save(ours_model.state_dict(), checkpoint_path)
     with open(config_path, "w") as fp:
-        json.dump(asdict(ours_config), fp)
-    output_path = tmp_path / "generated.bin"
+        yaml.dump(asdict(ours_config), fp)
+    output_dir = tmp_path / "out_dir"
 
-    convert_lit_checkpoint(checkpoint_path, output_path, config_path)
-    assert set(os.listdir(tmp_path)) == {"foo.ckpt", "foo.json", "generated.bin"}
+    convert_lit_checkpoint(checkpoint_path.parent, output_dir)
+    assert set(os.listdir(tmp_path)) == {"lit_model.pth", "model_config.yaml", "out_dir"}
+    assert os.path.isfile(output_dir / "model.pth")
 
     # check checkpoint is unwrapped
     torch.save({"model": ours_model.state_dict()}, checkpoint_path)
-    convert_lit_checkpoint(checkpoint_path, output_path, config_path)
-    converted_sd = torch.load(output_path)
+    convert_lit_checkpoint(checkpoint_path.parent, output_dir)
+    converted_sd = torch.load(output_dir / "model.pth")
     assert "model" not in converted_sd
 
 

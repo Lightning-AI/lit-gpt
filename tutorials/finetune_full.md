@@ -7,7 +7,7 @@ If you are interested in parameter-efficient finetuning, check out [finetune_ada
 The steps here only need to be done once:
 
 1. Follow the instructions in the [README](../README.md) to install the dependencies.
-2. Download and convert the weights following our [guide](download_stablelm.md).
+2. Download and convert the weights following our [guide](download_model_weights.md).
 
 LitGPT provides common datasets for finetuning, such as Alpaca, LIMA, Dolly, and more.
 You can optionally [prepare your own dataset](#tune-on-your-dataset).
@@ -16,7 +16,7 @@ For more information about dataset preparation, also see the [prepare_dataset.md
 ## Running the finetuning
 
 ```bash
-python litgpt/finetune/full.py \
+litgpt finetune full \
   --data Alpaca \
   --checkpoint_dir checkpoints/tiiuae/falcon-7b
 ```
@@ -29,7 +29,7 @@ Depending on the available GPU memory, you can also tune the `micro_batch_size` 
 This script will save checkpoints periodically to the `out_dir` directory. If you are finetuning different models or on your own dataset, you can specify an output directory with your preferred name:
 
 ```bash
-python litgpt/finetune/full.py \
+litgpt finetune full \
   --data Alpaca \
   --out_dir out/full/my-model-finetuned
 ```
@@ -38,7 +38,7 @@ If your GPU does not support `bfloat16`, you can pass the `--precision 32-true` 
 For instance, to fine-tune on MPS (the GPU on modern Macs), you can run
 
 ```bash
-python litgpt/finetune/full.py \
+litgpt finetune full \
   --data Alpaca \
   --out_dir out/full/my-model-finetuned \
   --precision 32-true
@@ -51,7 +51,7 @@ Note that `mps` as the accelerator will be picked up automatically by Fabric whe
 You can test the finetuned model with your own instructions by running:
 
 ```bash
-python generate/full.py \
+litgpt generate full \
     --prompt "Recommend a movie to watch on the weekend." \
     --checkpoint_dir checkpoints/tiiuae/falcon-7b \
     --finetuned_path out/full/my-model-finetuned/lit_model_finetuned.pth
@@ -87,7 +87,7 @@ You can easily train on your own instruction dataset saved in JSON format.
 2. Run `litgpt/finetune/full.py` by passing in the location of your data (and optionally other parameters):
 
     ```bash
-    python litgpt/finetune/full.py \
+    litgpt finetune full \
         --data JSON \
         --data.json_path data/mydata.json \
         --checkpoint_dir checkpoints/tiiuae/falcon-7b \

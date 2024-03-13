@@ -13,8 +13,8 @@ _URL = "https://raw.githubusercontent.com/Instruction-Tuning-with-GPT-4/GPT-4-LL
 class AlpacaGPT4(Alpaca):
     """AlpacaGPT4 data module for supervised finetuning."""
 
-    test_split_fraction: float = 0.03847  # to get exactly 2000 test samples,
-    """The fraction of the dataset to use for the test/validation dataset. The rest is used for training."""
+    val_split_fraction: float = 0.03847  # to get exactly 2000 test samples,
+    """The fraction of the dataset to use for the validation dataset. The rest is used for training."""
     download_dir: Path = Path("./data/alpacagpt4")
     """The directory in which the downloaded datasetgets saved."""
     file_url: str = field(repr=False, default=_URL)

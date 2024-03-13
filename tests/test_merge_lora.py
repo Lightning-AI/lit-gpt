@@ -14,7 +14,6 @@ import torch
 import yaml
 
 
-@RunIf(skip_windows=True)  # PermissionError in os.rename on Windows
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_merge_lora(tmp_path, fake_checkpoint_dir):
     from litgpt.lora import GPT as LoRAGPT
@@ -26,12 +25,13 @@ def test_merge_lora(tmp_path, fake_checkpoint_dir):
     lora_checkpoint_dir = tmp_path / "lora"
     shutil.copytree(fake_checkpoint_dir, pretrained_checkpoint_dir)
     shutil.copytree(fake_checkpoint_dir, lora_checkpoint_dir)
+    (lora_checkpoint_dir / "lit_model.pth").unlink()  # should not already exist
     shutil.rmtree(tmp_path / "checkpoints")
 
     # Create a fake pretrained checkpoint
     config = dict(block_size=128, padded_vocab_size=256, n_layer=3, n_head=8, n_embd=16)
-    with open(pretrained_checkpoint_dir / "lit_config.json", "w") as fp:
-        json.dump(config, fp)
+    with open(pretrained_checkpoint_dir / "model_config.yaml", "w") as fp:
+        yaml.dump(config, fp)
     base_model = GPT.from_name("pythia-14m", **config)
     state_dict = base_model.state_dict()
     assert len(state_dict) == 40
@@ -42,17 +42,17 @@ def test_merge_lora(tmp_path, fake_checkpoint_dir):
     lora_model = LoRAGPT.from_name("pythia-14m", **config, **lora_kwargs)
     state_dict = {k: v for k, v in lora_model.state_dict().items() if lora_filter(k, v)}
     assert len(state_dict) == 6
-    torch.save(state_dict, lora_checkpoint_dir / "lit_model.pth")
+    torch.save(state_dict, lora_checkpoint_dir / "lit_model.pth.lora")
     hparams = dict(checkpoint_dir=str(pretrained_checkpoint_dir), **lora_kwargs)
     with open(lora_checkpoint_dir / "hyperparameters.yaml", "w") as file:
         yaml.dump(hparams, file)
-    shutil.copyfile(pretrained_checkpoint_dir / "lit_config.json", lora_checkpoint_dir / "lit_config.json")
+    shutil.copyfile(pretrained_checkpoint_dir / "model_config.yaml", lora_checkpoint_dir / "model_config.yaml")
 
     assert set(os.listdir(tmp_path)) == {"lora", "pretrained"}
     merge_lora(lora_checkpoint_dir)
     assert set(os.listdir(tmp_path)) == {"lora", "pretrained"}
     assert set(os.listdir(lora_checkpoint_dir)) == {
-        "lit_config.json",
+        "model_config.yaml",
         "lit_model.pth",
         "lit_model.pth.lora",
         "tokenizer.json",

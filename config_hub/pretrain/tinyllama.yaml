@@ -1,29 +1,95 @@
+
+# The name of the model to pretrain. Choose from names in ``litgpt.config``. Mutually exclusive with
+# ``model_config``. (type: Optional[str], default: null)
 model_name: tiny-llama-1.1b
-logger_name: tensorboard
-resume: false
-devices: auto
-seed: 42
-data: TinyLlama
+
+# A ``litgpt.Config`` object to define the model architecture. Mutually exclusive with
+# ``model_config``. (type: Optional[Config], default: null)
+model_config:
+
+# Directory in which to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
+# /teamspace/jobs/<job-name>/share. (type: <class 'Path'>, default: out/pretrain)
 out_dir: out/pretrain/tiny-llama
-tokenizer_dir: checkpoints/meta-llama/Llama-2-7b-hf
+
+# Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
+# from the latest checkpoint in ``out_dir``. (type: Union[bool, Path], default: False)
+resume: false
+
+# Data-related arguments. If not provided, the default is ``litgpt.data.TinyLlama``.
+data: TinyLlama
+
+# Training-related arguments. See ``litgpt.args.TrainArgs`` for details
 train:
+
+  # Number of optimizer steps between saving checkpoints (type: Optional[int], default: 1000)
   save_interval: 1000
+
+  # Number of iterations between logging calls (type: int, default: 1)
   log_interval: 1
+
+  # Number of samples between optimizer steps across data-parallel ranks (type: int, default: 512)
   global_batch_size: 512
+
+  # Number of samples per data-parallel rank (type: int, default: 4)
   micro_batch_size: 4
+
+  # Number of iterations with learning rate warmup active (type: int, default: 2000)
   lr_warmup_steps: 2000
-  epochs: null
+
+  # Number of epochs to train on (type: Optional[int], default: null)
+  epochs:
+
+  # Total number of tokens to train on (type: Optional[int], default: 3000000000000)
   max_tokens: 3000000000000
-  max_steps: null
+
+  # Limits the number of optimizer steps to run. (type: Optional[int], default: null)
+  max_steps:
+
+  # Limits the length of samples. Off by default (type: Optional[int], default: null)
   max_seq_length: 2048
-  tie_embeddings: null
+
+  # Whether to tie the embedding weights with the language modeling head weights. (type: Optional[bool], default: False)
+  tie_embeddings:
+
+  #   (type: float, default: 0.0004)
   learning_rate: 4e-4
-  weight_decay: 1e-1
+
+  #   (type: float, default: 0.1)
+  weight_decay: 0.1
+
+  #   (type: float, default: 0.9)
   beta1: 0.9
+
+  #   (type: float, default: 0.95)
   beta2: 0.95
+
+  #   (type: Optional[float], default: 1.0)
   max_norm: 1.0
+
+  #   (type: float, default: 4e-05)
   min_lr: 4.0e-05
+
+# Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details
 eval:
+
+  # Number of optimizer steps between evaluation calls (type: int, default: 1000)
   interval: 1000
-  max_new_tokens: null
+
+  # Number of tokens to generate (type: Optional[int], default: null)
+  max_new_tokens:
+
+  # Number of iterations (type: int, default: 100)
   max_iters: 100
+
+# How many devices/GPUs to use. Uses all GPUs by default. (type: Union[int, str], default: auto)
+devices: auto
+
+# Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
+# module require this. (type: Optional[Path], default: null)
+tokenizer_dir: checkpoints/meta-llama/Llama-2-7b-hf
+
+# The name of the logger to send metrics to. (type: Literal['wandb', 'tensorboard', 'csv'], default: tensorboard)
+logger_name: tensorboard
+
+# The random seed to use for reproducibility. (type: int, default: 42)
+seed: 42

@@ -1,2 +1,0 @@
-torch>=2.2.0
-lightning @ git+https://github.com/Lightning-AI/lightning@f23b3b1e7fdab1d325f79f69a28706d33144f27e

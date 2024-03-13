@@ -291,6 +291,7 @@ def convert_hf_checkpoint(
     model_name: Optional[str] = None,
     dtype: Optional[str] = None,
 ) -> None:
+    """Convert a Hugging Face Transformers checkpoint into a LitGPT compatible checkpoint."""
     if model_name is None:
         model_name = checkpoint_dir.name
     if dtype is not None:

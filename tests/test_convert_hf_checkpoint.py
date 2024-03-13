@@ -113,10 +113,10 @@ def test_convert_hf_checkpoint(tmp_path):
         convert_hf_checkpoint(checkpoint_dir=tmp_path, model_name="pythia-14m")
     load.assert_called_with(bin_file)
 
-    assert {p.name for p in tmp_path.glob("*")} == {"foo.bin", "lit_config.json", "lit_model.pth"}
+    assert {p.name for p in tmp_path.glob("*")} == {"foo.bin", "model_config.yaml", "lit_model.pth"}
 
     # ensure that the config dict can be loaded
     from litgpt import Config
 
-    config = Config.from_json(tmp_path / "lit_config.json")
+    config = Config.from_file(tmp_path / "model_config.yaml")
     assert isinstance(config, Config)

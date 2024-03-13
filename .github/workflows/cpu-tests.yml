@@ -41,18 +41,15 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         cache-dependency-path: |
-          requirements.txt
-          requirements-all.txt
-          setup.py
+          pyproject.toml
 
     - name: Install minimal dependencies
       run: |
-        pip install -r requirements.txt
+        pip install .
         pip list
-        # make sure all modules are importable
+        # make sure all modules are still importable with only the minimal dependencies available
         modules=$(
-          find * -type f -name "*.py" | \
-          grep -v tests | grep "/" | grep -v lm_eval | grep -v xla | \
+          find litgpt -type f -name "*.py" | \
           sed 's/\.py$//' | sed 's/\//./g' | \
           sed 's/.__init__//g' | xargs -I {} echo "import {};"
         )
@@ -61,15 +58,9 @@ jobs:
 
     - name: Install all dependencies
       run: |
-        pip install -r requirements-all.txt pytest pytest-rerunfailures pytest-timeout transformers>=4.38.0 einops protobuf
+        pip install '.[all,test]'
         pip list
-
-    - name: Run tests without the package installed
-      run: |
-        pytest -v --disable-pytest-warnings --strict-markers --color=yes --timeout 120
 
     - name: Run tests
       run: |
-        pip install . --no-deps
-
         pytest -v --disable-pytest-warnings --strict-markers --color=yes --timeout 120
