@@ -47,7 +47,8 @@ class TinyLlama(LitDataModule):
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
-        self.seq_length = max_seq_length + 1  # Increase by one because we need the next token as well
+        if max_seq_length:
+            self.seq_length = max_seq_length + 1  # Increase by one because we need the next token as well
 
     def prepare_data(self) -> None:
         # for path in (self.slimpajama_train, self.slimpajama_val, self.starcoder_train):
@@ -59,17 +60,17 @@ class TinyLlama(LitDataModule):
         #         )
 
         prepare_slimpajama(
-            input_dir=(self.data_path / "SlimPajama-627B/train"),  # TODO: double check folder name
+            input_dir=os.path.join(self.data_path, "SlimPajama-627B/train"),
             output_dir=self.slimpajama_train,
             tokenizer=self.tokenizer,
         )
         prepare_slimpajama(
-            input_dir=(self.data_path / "SlimPajama-627B/val"),  # TODO: double check folder name
+            input_dir=os.path.join(self.data_path, "SlimPajama-627B/validation"),
             output_dir=self.slimpajama_val,
             tokenizer=self.tokenizer,
         )
         prepare_starcoder(
-            input_dir=(self.data_path / "starcoderdata"),
+            input_dir=os.path.join(self.data_path, "starcoderdata"),
             output_dir=self.starcoder_train,
             tokenizer=self.tokenizer,
         )
