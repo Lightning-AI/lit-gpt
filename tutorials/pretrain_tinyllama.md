@@ -49,7 +49,7 @@ In order to start pretraining litgpt on it, you need to read, tokenize, and writ
 First, install additional dependencies for preprocessing:
 
 ```bash
-pip install '.[all]'
+pip install litgpt '.[all]'
 ```
 
 You will need to have the tokenizer config available:
@@ -61,38 +61,16 @@ litgpt download \
    --tokenizer_only true
 ```
 
-Then, run the preprocessing script for each dataset and split.
-You will require **1.1 TB** of disk space for Starcoder and **2.5** TB of space for the SlimPajama dataset.
-
-**Starcoder:**
+Then, run the preprocessing command by pointing to the directory where the data was downloaded.
+You will require and additional **1.1 TB** of disk space for Starcoder and **2.5** TB of space for the SlimPajama dataset.
 
 ```bash
-python litgpt/data/prepare_starcoder.py \
-  --input_dir data/starcoderdata-raw \
-  --output_dir data/starcoder \
+litgpt prepare \
+  --data TinyLlama \
+  --data.data_path data \
   --tokenizer_path checkpoints/meta-llama/Llama-2-7b-hf
 ```
 
-**SlimPajama:**
-
-```bash
-python litgpt/data/prepare_slimpajama.py \
-  --input_dir data/slimpajama-raw/validation \
-  --output_dir data/slimpajama/val \
-  --tokenizer_path checkpoints/meta-llama/Llama-2-7b-hf
-
-python litgpt/data/prepare_slimpajama.py \
-  --input_dir data/slimpajama-raw/test \
-  --output_dir data/slimpajama/test \
-  --tokenizer_path checkpoints/meta-llama/Llama-2-7b-hf
-
-python litgpt/data/prepare_slimpajama.py \
-  --input_dir data/slimpajama-raw/train \
-  --output_dir data/slimpajama/train \
-  --tokenizer_path checkpoints/meta-llama/Llama-2-7b-hf
-```
-
-If you want to run on a small slice of the datasets first, pass the flag `--fast_dev_run=true` to the commands above.
 In the above we are assuming that you will be using the same tokenizer as used in LlaMA/TinyLlama, but any trained [SentencePiece](https://github.com/google/sentencepiece) tokenizer with a 32000 vocabulary size will do here.
 
 ## Pretraining
