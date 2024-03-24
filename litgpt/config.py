@@ -888,6 +888,46 @@ for c in gemma:
     copy["hf_config"]["name"] = f"{c['hf_config']['name']}-it"
     configs.append(copy)
 
+#################
+# Allen AI OLMo
+#################
+olmo = [
+    # https://huggingface.co/allenai/OLMo-1B/blob/main/config.json
+    dict(
+        name="OLMo-1b-hf",
+        hf_config=dict(org="allenai", name="OLMo-1b"),
+        vocab_size=50280,
+        padding_multiple=64,
+        padded_vocab_size=50304,
+        n_embd=2048,
+        n_layer=16,
+        n_head=16,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="LayerNorm",
+        _mlp_class="OLMoMLP",
+        intermediate_size=8192,
+    ),
+    # https://huggingface.co/allenai/OLMo-7B/blob/main/config.json
+    dict(
+        name="OLMo-7b-hf",
+        hf_config=dict(org="allenai", name="OLMo-7b"),
+        vocab_size=50280,
+        padding_multiple=64,
+        padded_vocab_size=50304,
+        n_layer=32,
+        n_head=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="LayerNorm",
+        _mlp_class="OLMoMLP",
+        intermediate_size=11008,
+    )
+]
+
+configs.extend(olmo)
 
 ##########################
 # Stability AI FreeWilly2

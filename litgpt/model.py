@@ -304,6 +304,29 @@ class GemmaMLP(LLaMAMLP):
         return self.proj(x)
 
 
+class OLMoSwiGLU(torch.nn.Module):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x, gate = x.chunk(2, dim=-1)
+        return torch.nn.functional.silu(gate) * x
+
+    @property
+    def output_multiplier(self) -> float:
+        return 0.5
+
+
+class OLMoMLP(nn.Module):
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        self.ff_proj = nn.Linear(config.n_embd, config.intermediate_size*2, bias=config.bias)
+        self.ff_out = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias)
+        self.olmo_swiglu = OLMoSwiGLU()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.ff_proj(x)
+        x = self.olmo_swiglu(x)
+        return self.ff_out(x)
+
+
 class LLaMAMoE(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()

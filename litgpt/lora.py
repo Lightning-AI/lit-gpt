@@ -686,15 +686,34 @@ class LLaMAMLP(litgpt.model.LLaMAMLP):
             lora_dropout=config.lora_dropout,
         )
 
+
+class OLMoMLP(lit_gpt.model.OLMoMLP):
+    def __init__(self, config: Config) -> None:
+        nn.Module.__init__(self)
+        self.ff_proj = LoRALinear(
+            config.n_embd,
+            config.intermediate_size*2,
+            bias=config.bias,
+            r=(config.r if config.to_mlp else 0),
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
+        self.ff_out = LoRALinear(
+            config.intermediate_size,
+            config.n_embd,
+            bias=config.bias,
+            r=(config.r if config.to_mlp else 0),
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
+
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {
-            "fc_1.weight": "fc_1.linear.weight",
-            "fc_1.bias": "fc_1.linear.bias",
-            "fc_2.weight": "fc_2.linear.weight",
-            "fc_2.bias": "fc_2.linear.bias",
-            "proj.weight": "proj.linear.weight",
-            "proj.bias": "proj.linear.bias",
+            "ff_proj.weight": "ff_proj.linear.weight",
+            "ff_proj.bias": "ff_proj.linear.bias",
+            "ff_out.weight": "ff_out.linear.weight",
+            "ff_out.bias": "ff_out.linear.bias",
         }
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)

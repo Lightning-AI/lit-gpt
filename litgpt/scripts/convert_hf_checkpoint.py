@@ -106,6 +106,57 @@ def copy_weights_falcon(
         state_dict[to_name] = param
 
 
+def copy_weights_hf_olmo(
+    config: Config,
+    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
+    state_dict: Dict[str, torch.Tensor],
+    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+    dtype: Optional[torch.dtype] = None,
+) -> None:
+    weight_map = {
+        "model.transformer.wte.weight": "transformer.wte.weight",
+        "model.transformer.ff_out.weight": "lm_head.weight",
+        #"model.transformer.ln_f.weight": "transformer.ln_f.weight",
+        #"model.transformer.ln_f.bias": "transformer.ln_f.bias",
+        "model.transformer.blocks.{}.attn_out.weight": "transformer.h.{}.attn.proj.weight",
+        "model.transformer.blocks.{}.ff_proj.weight": "transformer.h.{}.mlp.ff_proj.weight",
+        "model.transformer.blocks.{}.att_proj.weight": "transformer.h.{}.attn.attn.weight",
+        "model.transformer.blocks.{}.ff_out.weight": "transformer.h.{}.mlp.ff_out.weight",
+    }
+
+    for l in range(config.n_layer):
+        # Note that Olmo uses a non-parameteric LayerNorm meaning LayerNorm without shift and scale parameters
+        state_dict[f"transformer.h.{l}.norm_1.weight"] = torch.ones(config.n_embd)
+        state_dict[f"transformer.h.{l}.norm_2.weight"] = torch.ones(config.n_embd)
+        state_dict[f"transformer.ln_f.weight"] = torch.ones(config.n_embd)
+        state_dict[f"transformer.h.{l}.norm_1.bias"] = torch.zeros(config.n_embd)
+        state_dict[f"transformer.h.{l}.norm_2.bias"] = torch.zeros(config.n_embd)
+        state_dict[f"transformer.ln_f.bias"] = torch.zeros(config.n_embd)
+
+    for name, param in hf_weights.items():
+        if "model.transformer.blocks" in name:
+            from_name, number = layer_template(name, 3)
+            to_name = weight_map[from_name]
+            if to_name is None:
+                continue
+            to_name = to_name.format(number)
+        else:
+            to_name = weight_map[name]
+        param = load_param(param, name, dtype)
+        if saver is not None:
+            param = saver.store_early(param)
+            state_dict[to_name] = param
+        else:
+            state_dict[to_name] = param
+
+    # weight tying for the 1B model. But it seems like the 7B model
+    # has an model.transformer.ff_out.weight that the 1B model doesn't have
+    # so only do weight tying for the 1B model if that key is not present:
+    if "lm_head.weight" not in state_dict.keys(): 
+        state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
+
+
 def copy_weights_hf_llama(
     config: Config,
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
