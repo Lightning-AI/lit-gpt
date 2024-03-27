@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-
+import sys
 from typing import TYPE_CHECKING, Any
+from importlib.metadata import version
 
 import torch
 
@@ -84,6 +85,7 @@ def main() -> None:
 
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)
+    _substitute_litgpt_config_urls()
 
     root_parser = _new_parser(prog="litgpt")
 
@@ -127,6 +129,23 @@ def main() -> None:
     torch.set_float32_matmul_precision("high")
 
     fn(**kwargs)
+
+
+def _substitute_litgpt_config_urls():
+    if "--config" not in sys.argv:
+        return
+
+    position = sys.argv.index("--config") + 1
+    url = sys.argv[position]
+    if not url.startswith("litgpt://"):
+        return
+
+    litgpt_version = version("litgpt")
+    # TODO: what to do with dev installs?
+
+    config_path = url.split("litgpt://")[1]
+    full_url = f"https://github.com/Lightning-AI/litgpt/blob/{litgpt_version}/config_hub/{config_path}"
+    sys.argv[position] = full_url
 
 
 if __name__ == "__main__":
