@@ -139,7 +139,6 @@ def test_unsloth_gpt():
         n_embd=64,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=1376,

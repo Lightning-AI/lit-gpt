@@ -257,7 +257,8 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
     from bitsandbytes.optim import PagedAdamW
 
     model_config = dict(
-        block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0, bias=True
+        block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0,
+        attn_proj_bias=True, attn_qkv_bias=True, mlp_bias=True,
     )
     (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
 

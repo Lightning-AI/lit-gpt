@@ -23,7 +23,7 @@ import extensions.thunder.pretrain as pretrain
 @RunIf(min_cuda_gpus=1, thunder=True)
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0"})
 def test_pretrain(tmp_path, monkeypatch):
-    model_config = Config(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
+    model_config = Config(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, attn_qkv_bias=True, attn_proj_bias=True, mlp_bias=True)
 
     dataset = torch.tensor([[0, 1, 2], [3, 4, 5], [0, 1, 2]])
     dataloader = DataLoader(dataset)

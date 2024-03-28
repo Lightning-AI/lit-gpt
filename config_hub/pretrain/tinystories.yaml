@@ -18,7 +18,9 @@ model_config:
   head_size: 48
   rotary_percentage: 1.0
   parallel_residual: false
-  bias: false
+  attn_qkv_bias: false
+  attn_proj_bias: false
+  mlp_bias: false
   norm_class_name: RMSNorm
   mlp_class_name: LLaMAMLP
   intermediate_size: 768

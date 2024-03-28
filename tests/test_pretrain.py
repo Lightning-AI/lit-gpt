@@ -27,7 +27,7 @@ from litgpt.pretrain import init_out_dir, initialize_weights
 # launching, so we need to mock `save_hyperparameters()`
 @mock.patch("litgpt.pretrain.save_hyperparameters")
 def test_pretrain(_, tmp_path):
-    model_config = Config(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
+    model_config = Config(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, attn_qkv_bias=True, attn_proj_bias=True, mlp_bias=True)
 
     dataset = torch.tensor([[0, 1, 2], [3, 4, 5], [0, 1, 2]])
     dataloader = DataLoader(dataset)

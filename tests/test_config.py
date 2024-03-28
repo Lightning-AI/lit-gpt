@@ -82,3 +82,33 @@ def test_head_size(head_size):
     config = Config(head_size)
 
     assert config.head_size == head_size or config.n_embd // config.n_head
+
+
+@pytest.mark.parametrize("model_name", [c["name"] for c in config_module.configs])
+def test_against_hf_config_bias_parity(model_name):
+    import os
+
+    from transformers import AutoConfig
+
+    from litgpt import Config
+
+    ours_config = Config.from_name(model_name)
+    try:
+        theirs_config = AutoConfig.from_pretrained(
+            "/".join(ours_config.hf_config.values()),
+            token=os.getenv("HF_TOKEN"),
+        )
+    except OSError as e_info:
+        if "You are trying to access a gated repo." in str(e_info):
+            pytest.xfail("Gated repo.")
+        else:
+            raise e_info
+
+    b_names = [name for name in theirs_config.__dict__ if "bias" in name]
+    assert len(b_names) <= 1
+    if len(b_names) == 1:
+        assert b_names[0] in ("attention_bias", "use_qkv_bias", "bias")
+        hf_bias = getattr(theirs_config, b_names[0])
+        assert hf_bias == ours_config.attn_qkv_bias
+        assert hf_bias == ours_config.attn_proj_bias
+        assert hf_bias == ours_config.mlp_bias

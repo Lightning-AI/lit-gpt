@@ -193,10 +193,10 @@ class CausalSelfAttention(nn.Module):
         super().__init__()
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
-        self.attn = nn.Linear(config.n_embd, shape, bias=config.bias)
+        self.attn = nn.Linear(config.n_embd, shape, bias=config.attn_qkv_bias)
         # output projection
         # if `head_size` is explicitly specified in the config, `n_emd` might not be equal to `head_size * n_head`
-        self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
+        self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.attn_proj_bias)
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
 
@@ -287,8 +287,8 @@ class CausalSelfAttention(nn.Module):
 class GptNeoxMLP(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        self.fc = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
-        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias)
+        self.fc = nn.Linear(config.n_embd, config.intermediate_size, bias=config.mlp_bias)
+        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.mlp_bias)
 
         self.config = config
 
@@ -301,9 +301,9 @@ class GptNeoxMLP(nn.Module):
 class LLaMAMLP(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        self.fc_1 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
-        self.fc_2 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
-        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias)
+        self.fc_1 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.mlp_bias)
+        self.fc_2 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.mlp_bias)
+        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.mlp_bias)
 
         self.config = config
 

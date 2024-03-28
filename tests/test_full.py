@@ -16,7 +16,16 @@ from litgpt.data import Alpaca
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
-    model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
+    model_config = dict(
+        block_size=128,
+        n_layer=2,
+        n_embd=8,
+        n_head=4,
+        padded_vocab_size=8,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
+    )
     (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
     monkeypatch.setattr(module, "load_checkpoint", Mock())
 

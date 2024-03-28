@@ -27,7 +27,16 @@ def test_merge_lora(tmp_path, fake_checkpoint_dir):
     shutil.rmtree(tmp_path / "checkpoints")
 
     # Create a fake pretrained checkpoint
-    config = dict(block_size=128, padded_vocab_size=256, n_layer=3, n_head=8, n_embd=16)
+    config = dict(
+        block_size=128,
+        padded_vocab_size=256,
+        n_layer=3,
+        n_head=8,
+        n_embd=16,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
+    )
     with open(pretrained_checkpoint_dir / "model_config.yaml", "w") as fp:
         yaml.dump(config, fp)
     base_model = GPT.from_name("pythia-14m", **config)

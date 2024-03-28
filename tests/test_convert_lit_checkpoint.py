@@ -61,7 +61,7 @@ def test_against_falcon_40b():
         num_kv_heads=ours_config.n_query_groups,
         new_decoder_architecture=True,
         parallel_attn=ours_config.parallel_residual,
-        bias=ours_config.bias,
+        bias=ours_config.attn_qkv_bias,
     )
 
     ours_model = GPT(ours_config)
@@ -82,7 +82,16 @@ def test_against_falcon_40b():
 
 @torch.inference_mode()
 def test_against_original_gpt_neox():
-    ours_config = Config(block_size=64, vocab_size=100, n_layer=4, n_head=8, n_embd=16)
+    ours_config = Config(
+        block_size=64,
+        vocab_size=100,
+        n_layer=4,
+        n_head=8,
+        n_embd=16,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
+    )
     assert ours_config.padded_vocab_size == 512
     theirs_config = GPTNeoXConfig(
         hidden_act="gelu",
@@ -384,7 +393,7 @@ def test_against_original_gemma(model_name, device, dtype):
         rms_norm_eps=ours_config.norm_eps,
         num_key_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
-        attention_bias=ours_config.bias,
+        attention_bias=ours_config.attn_qkv_bias,
         tie_word_embeddings=True,
         hidden_act="gelu_pytorch_tanh",
     )
