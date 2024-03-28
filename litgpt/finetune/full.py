@@ -31,6 +31,7 @@ from litgpt.utils import (
     num_parameters,
     parse_devices,
     save_hyperparameters,
+    get_linear_nonlinear_params
 )
 
 
@@ -52,6 +53,12 @@ def setup(
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
+    use_galore: bool = False,
+    galore_8bit: bool = False,
+    galore_r: int = 128,
+    galore_update_proj_gap: int = 200,
+    galore_scale: float = 0.25,
+    galore_proj_type: Literal["std", "reverse_std"] = "std",
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
 ) -> None:
@@ -67,6 +74,13 @@ def setup(
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        use_galore: Whether to enable GaLore (GaLore is applied to all linear layers).
+        use_galore_8bit: Whether to use the 8-bit GaLore AdamW optimizer
+            instead of the Galore AdamW optimizer.
+        galore_r: GaLore rank,
+        galore_update_proj_gap: GaLore hyperparameter,
+        galore_scale: GaLore scale factor,
+        galore_proj_type: GaLore projection type,
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
@@ -95,7 +109,10 @@ def setup(
         strategy = "auto"
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval)
+    fabric.launch(
+        main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval,
+        use_galore, galore_8bit, galore_r, galore_update_proj_gap, galore_scale, galore_proj_type
+    )
 
 
 def main(
@@ -109,6 +126,12 @@ def main(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
+    use_galore: bool,
+    galore_8bit: bool,
+    galore_r: int,
+    galore_update_proj_gap: int,
+    galore_scale: float,
+    galore_proj_type: str,
 ) -> None:
     validate_args(train, eval)
 
@@ -129,9 +152,37 @@ def main(
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
 
     model = fabric.setup(model)
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
-    )
+
+    if use_galore:
+
+        linear_params, nonlinear_params = get_linear_nonlinear_params(model)
+        # Currently apply galore to all parameters; might add options to target specific layers later)
+        param_groups = [
+            {'params': nonlinear_params},
+            {
+             'params': linear_params,
+             'rank': galore_r,
+             'update_proj_gap': galore_update_proj_gap,
+             'scale': galore_scale,
+             'proj_type': galore_proj_type
+            }
+        ]
+        if galore_8bit:
+            from galore_torch import GaLoreAdamW8bit
+            optimizer = GaLoreAdamW8bit(
+                        param_groups, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
+                    )
+        else:
+            from galore_torch import GaLoreAdamW
+            optimizer = GaLoreAdamW(
+                param_groups, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
+            )
+
+    else:
+        optimizer = torch.optim.AdamW(
+            model.parameters(), lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
+        )
+
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
     state = {"model": model, "optimizer": optimizer, "scheduler": scheduler, "iter_num": 0, "step_count": 0}

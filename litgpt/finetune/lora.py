@@ -34,6 +34,7 @@ from litgpt.utils import (
     num_parameters,
     parse_devices,
     save_hyperparameters,
+    get_linear_nonlinear_params
 )
 
 
@@ -52,6 +53,12 @@ def setup(
     lora_projection: bool = False,
     lora_mlp: bool = False,
     lora_head: bool = False,
+    use_galore: bool = False,
+    galore_8bit: bool = False,
+    galore_r: int = 128,
+    galore_update_proj_gap: int = 200,
+    galore_scale: float = 0.25,
+    galore_proj_type: Literal["std", "reverse_std"] = "std",
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -84,6 +91,13 @@ def setup(
         lora_projection: Whether to apply LoRA to the output projection in the attention block.
         lora_mlp: Whether to apply LoRA to the weights of the MLP in the attention block.
         lora_head: Whether to apply LoRA to output head in GPT.
+        use_galore: Whether to enable GaLore (GaLore is applied to all linear layers).
+        use_galore_8bit: Whether to use the 8-bit GaLore AdamW optimizer
+            instead of the Galore AdamW optimizer.
+        galore_r: GaLore rank,
+        galore_update_proj_gap: GaLore hyperparameter,
+        galore_scale: GaLore scale factor,
+        galore_proj_type: GaLore projection type,
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
@@ -137,7 +151,11 @@ def setup(
         strategy = "auto"
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
-    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval)
+    fabric.launch(
+        main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval,
+        use_galore, galore_8bit, galore_r, galore_update_proj_gap, galore_scale, galore_proj_type
+    )
+
 
 
 def main(
@@ -150,6 +168,12 @@ def main(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
+    use_galore: bool,
+    galore_8bit: bool,
+    galore_r: int,
+    galore_update_proj_gap: int,
+    galore_scale: float,
+    galore_proj_type: str,
 ) -> None:
     validate_args(train, eval)
 
@@ -174,10 +198,36 @@ def main(
     model = fabric.setup_module(model)
 
     trainable_params = [p for p in model.parameters() if p.requires_grad]
+
     if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
         import bitsandbytes as bnb
 
+        if use_galore:
+            raise ValueError("The combinatiomn of QLoRA and GaLore is currently not supported.")
+
         optimizer_cls = bnb.optim.PagedAdamW
+
+    elif use_galore:
+
+        linear_params, nonlinear_params = get_linear_nonlinear_params(model)
+        # Currently apply galore to all parameters; might add options to target specific layers later)
+        trainable_params = [
+            {'params': nonlinear_params},
+            {
+             'params': linear_params,
+             'rank': galore_r,
+             'update_proj_gap': galore_update_proj_gap,
+             'scale': galore_scale,
+             'proj_type': galore_proj_type
+            }
+        ]
+        if galore_8bit:
+            from galore_torch import GaLoreAdamW8bit
+            optimizer_cls = GaLoreAdamW8bit
+        else:
+            from galore_torch import GaLoreAdamW
+            optimizer_cls = GaLoreAdamW
+
     else:
         optimizer_cls = torch.optim.AdamW
     optimizer = optimizer_cls(
