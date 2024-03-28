@@ -546,15 +546,15 @@ We provide a version of the main pre-training script [that integrates Thunder](p
 | Setting              | Compiler/JIT | Devices | ms/iter @ step 10 | Memory (GB) |
 |----------------------|--------------|---------|-------------------|-------------|
 | Fully-sharded ZeRO 3 | Eager        | 8       | 460.88            | 22.13       |
-| Fully-sharded ZeRO 3 | Inductor     | 8       | 318.71            | 17.08       |
-| Fully-sharded ZeRO 3 | Thunder      | 8       | 345.02            | 18.28       |
+| Fully-sharded ZeRO 3 | Inductor     | 8       | Error             | Error       |
+| Fully-sharded ZeRO 3 | Thunder      | 8       | 333.22            | 21.40       |
 |                      |              |         |                   |             |
 | Replicated           | Eager        | 8       | 535.28            | 32.05       |
-| Replicated           | Inductor     | 8       | 348.19            | 27.01       |
+| Replicated           | Inductor     | 8       | Error             | Error       |
 | Replicated           | Thunder      | 8       | OOM               | OOM         |
 |                      |              |         |                   |             |
 | -                    | Eager        | 1       | 449.88            | 29.85       |
-| -                    | Inductor     | 1       | 320.22            | 24.81       |
+| -                    | Inductor     | 1       | Error             | Error       |
 | -                    | Thunder      | 1       | 322.83            | 26.37       |
 |                      |              |         |                   |             |
 | Unsloth              | Thunder      | 1       | 331.93            | 25.19       |
@@ -566,12 +566,7 @@ Config:
 
 ```yaml
 out_dir: out/pretrain-thunder
-data:
-  class_path: litgpt.data.TinyStories
-  init_args:
-    path: data
-    num_workers: 0
-    seed: 42
+data: TinyStories
 tokenizer_dir: checkpoints/meta-llama/Llama-2-7b-hf
 logger_name: csv
 ```
@@ -581,25 +576,24 @@ Commands:
 ```bash
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --train.global_batch_size 32
 python extensions/thunder/pretrain.py --config config.yaml --compiler torch --train.global_batch_size 32
-python extensions/thunder/pretrain.py --config config.yaml --train.global_batch_size 32
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --train.global_batch_size 32
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --strategy ddp
 python extensions/thunder/pretrain.py --config config.yaml --compiler torch --strategy ddp
-python extensions/thunder/pretrain.py --config config.yaml --strategy ddp
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --strategy ddp
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --devices 1
 python extensions/thunder/pretrain.py --config config.yaml --compiler torch --devices 1
-python extensions/thunder/pretrain.py --config config.yaml --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --devices 1
 
-python extensions/thunder/unsloth/pretrain.py --config config.yaml --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, unsloth, torchcompile, nvfuser, torch]' --devices 1
 ```
 
 Gradient accumulation is disabled in the FSDP setting because Thunder does not support skipping the backward synchronization yet.
 
-The CUDA devices are all NVIDIA A100-SXM4-40GB.
+`torch.compile` fails to compile the `_FabricModule` due to this bug: https://github.com/pytorch/pytorch/issues/112787#issuecomment-1986827601 
 
-The Unsloth example does not support distributed yet.
-The Unsloth example requires commenting out this line in Lightning Fabric: https://github.com/Lightning-AI/pytorch-lightning/blob/fadd2fc/src/lightning/fabric/wrappers.py#L233
+The CUDA devices are all NVIDIA A100-SXM4-40GB.
 
 ```text
 Python version: 3.10.12 (main, Nov 20 2023, 15:14:05) [GCC 11.4.0] (64-bit runtime)
@@ -608,9 +602,9 @@ CUDA used to build PyTorch: 12.1
 CUDA runtime version: 12.3.107
 Nvidia driver version: 545.23.08
 pytorch-triton==3.0.0+989adb9a29
-torch==2.3.0.dev20240314+cu121
-lightning-thunder==0.1.0
-nvfuser_cu121==0.1.7.dev20240315
+torch==2.4.0.dev20240326+cu121
+lightning-thunder==84ac1b0f5352f9a5388bd207aab7a0580c29cbfc
+nvfuser_cu121==0.2.0.dev20240327
 ```
 
 </details>

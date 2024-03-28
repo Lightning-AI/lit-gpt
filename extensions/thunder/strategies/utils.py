@@ -1,10 +1,10 @@
-from typing import TYPE_CHECKING, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Optional, Tuple, Union, Sequence
 
 if TYPE_CHECKING:
     from thunder import Executor
 
 
-def _validate_executors(executors: Optional[Tuple[Union["Executor", str], ...]]) -> Optional[Tuple["Executor", ...]]:
+def _validate_executors(executors: Optional[Sequence[Union["Executor", str]]]) -> Optional[Tuple["Executor", ...]]:
     """Converts string executors into it's respective ``Executor`` object."""
     if executors is None:
         return None

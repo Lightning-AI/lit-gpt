@@ -10,7 +10,7 @@ license = { file = "LICENSE" }
 
 dependencies = [
     "torch>=2.2.0",
-    "lightning==2.3.0.dev20240324",
+    "lightning==2.3.0.dev20240328",
     "jsonargparse[signatures]>=4.27.6",
 ]
 

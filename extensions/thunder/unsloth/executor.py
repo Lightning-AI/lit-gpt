@@ -18,7 +18,7 @@ sys.path.append(str(Path(__file__).parent))
 
 import kernels
 
-unsloth_ex = OperatorExecutor("unsloth_ex", version="0.1")
+unsloth_ex = OperatorExecutor("unsloth", version="0.1")
 register_executor(unsloth_ex)
 
 

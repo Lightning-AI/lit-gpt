@@ -3,11 +3,12 @@
 import math
 import os
 import pprint
+import sys
 import time
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Optional, Tuple, Union
+from typing import Any, Callable, Optional, Tuple, Union, List
 
 import lightning as L
 import torch
@@ -21,7 +22,7 @@ from typing_extensions import Literal
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import DataModule, TinyLlama
-from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
+from litgpt.model import GPT, CausalSelfAttention, Config, LLaMAMLP, Block
 from litgpt.utils import (
     CLI,
     CycleIterator,
@@ -34,6 +35,12 @@ from litgpt.utils import (
     save_config,
     save_hyperparameters,
 )
+
+# support running without installing as a package
+wd = Path(__file__).parent.resolve()
+sys.path.append(str(wd))
+
+from unsloth.executor import unsloth_ex  # import for registration
 
 
 def setup(
@@ -64,6 +71,7 @@ def setup(
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     seed: int = 42,
     compiler: Optional[Literal["thunder", "torch"]] = "thunder",
+    executors: Optional[List[str]] = ("sdpa", "torchcompile", "nvfuser", "torch"),
     strategy: Literal["auto", "ddp", "fsdp"] = "fsdp",
 ):
     """Pretrain a model.
@@ -88,6 +96,7 @@ def setup(
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
         compiler: If desired, the compiler/JIT to use.
+        executors: If using Thunder, the executors to enable.
         strategy: If desired, the strategy to use.
     """
     hparams = locals()
@@ -108,19 +117,16 @@ def setup(
 
     if devices > 1:
         if compiler == "thunder":
-            executors = ("sdpa", "torchcompile", "nvfuser", "torch")
-            global jit
-            jit = lambda model: model  # the strategy will call `jit`
             if strategy == "fsdp":
                 from extensions.thunder.strategies import ThunderFSDPStrategy
 
                 strategy = ThunderFSDPStrategy(
-                    sharding_strategy="ZERO3", bucketing_strategy="BLOCK", executors=executors, state_dict_type="full"
+                    sharding_strategy="ZERO3", bucketing_strategy="BLOCK", state_dict_type="full", jit=False,
                 )
             elif strategy == "ddp":
                 from extensions.thunder.strategies import ThunderDDPStrategy
 
-                strategy = ThunderDDPStrategy()
+                strategy = ThunderDDPStrategy(jit=False)
         else:
             if strategy == "fsdp":
                 strategy = FSDPStrategy(
@@ -130,6 +136,10 @@ def setup(
         strategy = "auto"
     fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-true", loggers=[logger])
     fabric.launch()
+
+    if compiler is not None:
+        global forward_and_loss
+        forward_and_loss = jit(forward_and_loss, executors) if compiler == "thunder" else torch.compile(forward_and_loss)
 
     fabric.print(pprint.pformat(hparams))
     if logger_name in ("tensorboard", "wandb"):
@@ -188,9 +198,10 @@ def main(
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters: {num_parameters(model):,}")
 
-    if compiler is not None:
-        model = jit(model) if compiler == "thunder" else torch.compile(model)
     model = fabric.setup(model)
+    if compiler == "thunder":
+        # avoid `Tensor.register_hook` which is unsupported
+        model._register_backward_hook = lambda *_: None
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=train.learning_rate,
@@ -284,9 +295,9 @@ def fit(
         targets = train_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
 
         is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
+        # FIXME: need the jitted model reference to pass it here. How do I get it?
         with fabric.no_backward_sync(model, enabled=is_accumulating):
-            logits = model(input_ids)
-            loss = chunked_cross_entropy(logits, targets)
+            loss = forward_and_loss(model, input_ids, targets)
             fabric.backward(loss / train.gradient_accumulation_iters(devices))
 
         running_loss.update(loss.detach())
@@ -359,6 +370,13 @@ def fit(
                 save_config(model.config, checkpoint_file.parent)
 
 
+def forward_and_loss(model: nn.Module, input_ids: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    logits = model(input_ids)
+    # disable chunk_size to enable the unsloth cross entropy kernel
+    loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+    return loss
+
+
 @torch.no_grad()
 def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int) -> torch.Tensor:
     fabric.barrier()
@@ -371,8 +389,7 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
             break
         input_ids = batch[:, 0 : model.max_seq_length].contiguous().long()
         targets = batch[:, 1 : (model.max_seq_length + 1)].contiguous().long()
-        logits = model(input_ids)
-        loss = chunked_cross_entropy(logits, targets)
+        loss = forward_and_loss(model, input_ids, targets)
         losses.append(loss)
 
     val_loss = torch.stack(losses).mean()
@@ -454,14 +471,13 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
         raise ValueError("\n".join(issues))
 
 
-def jit(fn: Callable) -> Any:
+def jit(fn: Callable, executors: List[str]) -> Any:
+    assert executors is not None
     import thunder
-    from thunder.executors.sdpaex import sdpa_ex
-    from thunder.executors.torch_compile import torch_compile_executor
+    from strategies.utils import _validate_executors
 
-    return thunder.jit(
-        fn, executors=[sdpa_ex, torch_compile_executor, thunder.nvfuser_executor, thunder.pytorch_executor]
-    )
+    executors = _validate_executors(executors)
+    return thunder.jit(fn, executors=executors)
 
 
 if __name__ == "__main__":
