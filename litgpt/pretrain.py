@@ -245,7 +245,7 @@ def fit(
     val_loss = "n/a"
 
     warmup_iters = train.lr_warmup_steps * train.gradient_accumulation_iters(devices)
-    for train_data in train_iterator:
+    for _, train_data in enumerate(train_iterator, initial_iter):
         if state["iter_num"] >= max_iters:
             break
 
