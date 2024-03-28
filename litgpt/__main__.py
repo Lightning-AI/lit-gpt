@@ -23,6 +23,7 @@ from litgpt.scripts.convert_pretrained_checkpoint import (
 )
 from litgpt.scripts.download import download_from_hub as download_fn
 from litgpt.scripts.merge_lora import merge_lora as merge_lora_fn
+from litgpt.eval.evaluate import convert_and_evaluate as evaluate_fn
 
 if TYPE_CHECKING:
     from jsonargparse import ArgumentParser
@@ -78,6 +79,7 @@ def main() -> None:
             },
         },
         "merge_lora": {"help": "Merges the LoRA weights with the base model.", "fn": merge_lora_fn},
+        "evaluate": {"help": "Evaluate a model with the LM Evaluation Harness.", "fn": evaluate_fn},
     }
 
     from jsonargparse import set_config_read_mode, set_docstring_parse_options

@@ -9,59 +9,75 @@ You can evaluate LitGPT using [EleutherAI's lm-eval](https://github.com/Eleuther
 You need to install the `lm-eval` framework first:
 
 ```bash
-pip install 'lm_eval @ git+https://github.com/EleutherAI/lm-evaluation-harness.git@115206dc89dad67b8b'
+pip install lm_eval
 ```
 
 &nbsp;
 
 ### Evaluating LitGPT base models
 
-Use the following command to evaluate LitGPT models on all tasks in Eleuther AI's Evaluation Harness.
+Suppose you downloaded a base model that we want to evaluate. Here, we use the `microsoft/phi-2` model:
 
 ```bash
-python eval/lm_eval_harness.py \
-    --checkpoint_dir "checkpoints/meta-llama/Llama-2-7b-hf" \
-    --precision "bf16-true" \
-    --save_filepath "results.json"
+litgpt download --repo_id microsoft/phi-2
 ```
 
-To evaluate on LLMs on specific tasks, for example, TruthfulQA and HellaSwag, you can use the `--eval_task` flag as follows:
+The download command above will save the model to the `checkoints/microsoft/phi-2` directory, which we can
+specify in the following evaluation command:
 
-```bash
-python eval/lm_eval_harness.py \
-    --checkpoint_dir "checkpoints/meta-llama/Llama-2-7b-hf" \
-    --eval_tasks "[truthfulqa_mc,hellaswag]" \
-    --precision "bf16-true" \
-    --save_filepath "results.json"
+
 ```
+litgpt evaluate \
+  --checkpoint_dir checkpoints/microsoft/phi-2/ \
+  --batch_size 4 \
+  --out_dir evaluate_model/
+```
+
+Please note that the `litgpt evaluate` command run an internal model conversion. 
+This is only necessary the first time you want to evaluate a model. To skip the conversion, 
+when you want to evaluate a model a second time, you can pass the `--skip_conversion true` argument:
+
+```
+litgpt evaluate \
+  --checkpoint_dir checkpoints/microsoft/phi-2/ \
+  --batch_size 4 \
+  --out_dir evaluate_model/ \
+  --skip_conversion true
+```
+
+&nbsp;
+
+> [!TIP]
+> By default, `ligpt evaluate` will evaluate a model on all Open LM Leaderboard tasks, which corresponds
+> to the setting `--tasks 
+> "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge"`. 
+
+> [!TIP]
+> The evaluation may take a long time, and for testing purpoes, you may want to reduce the number of tasks
+> or set a limit for the number of examples per task, for example, `--limit 10`.
 
 A list of supported tasks can be found [here](https://github.com/EleutherAI/lm-evaluation-harness/blob/master/docs/task_table.md).
+
+
+
 
 &nbsp;
 
 ### Evaluating LoRA-finetuned LLMs
 
-The above command can be used to evaluate models that are saved via a single checkpoint file. This includes downloaded checkpoints and base models finetuned via the full and adapter finetuning scripts.
+No further conversion is necessary when evaluating LoRA-finetuned models as the `finetune lora` command already prepares the necessary merged model files:
 
-For LoRA-finetuned models, you need to first merge the LoRA weights with the original checkpoint file as described in the [Merging LoRA Weights](finetune_lora.md#merging-lora-weights) section of the LoRA finetuning documentation.
+```bash
+litgpt finetune lora \
+  --checkpoint_dir checkpoints/microsoft/phi-2 \
+  --out_dir lora_model
+```
 
 &nbsp;
 
-## FAQs
-
-* **How do I evaluate on MMLU?**
-
-  MMLU is available as with lm-eval harness but the task name is not MMLU. You can use `hendrycksTest*` as regex to evaluate on MMLU.
-
-  ```shell
-  python eval/lm_eval_harness.py \
-      --checkpoint_dir "checkpoints/meta-llama/Llama-2-7b-hf" \
-      --precision "bf16-true" \
-      --eval_tasks "[hendrycksTest*]" \
-      --num_fewshot 5 \
-      --save_filepath "results.json"
-  ```
-
-* **Is Truthful MC is not available in lm-eval?**
-
-  It is available as `truthfulqa_mc`.
+```bash
+litgpt evaluate \
+  --checkpoint_dir lora_model/final \
+  --batch_size 4 \
+  --out_dir evaluate_model/ \
+```

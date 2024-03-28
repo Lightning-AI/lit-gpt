@@ -41,7 +41,7 @@ jobs:
       displayName: "Image info & NVIDIA"
 
     - script: |
-        pip install '.[all,test]' 'lm_eval @ git+https://github.com/EleutherAI/lm-evaluation-harness.git@115206dc89dad67b8b'
+        pip install '.[all,test]'
       displayName: 'Install dependencies'
 
     - script: |

@@ -61,7 +61,7 @@ jobs:
 
     - name: Install all dependencies
       run: |
-        uv pip install --system -e '.[all,test]' 'lm_eval @ git+https://github.com/EleutherAI/lm-evaluation-harness.git@115206dc89dad67b8b'
+        uv pip install --system -e '.[all,test]'
         uv pip list
 
     - name: Run tests
